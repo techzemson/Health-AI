@@ -4,13 +4,13 @@ import {
   LayoutDashboard, Utensils, ScanLine, Activity, MessageSquare, 
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
-  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer
+  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart, Target, Ruler, Dumbbell, Baby, Percent
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Components
 import Scanner from './components/Scanner';
-import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto, ShoppingItem } from './types';
+import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto, ShoppingItem, ActivityLevel } from './types';
 import { generateDailyPlan, chatWithAgent } from './services/geminiService';
 
 // --- MOCK DATA FOR ONBOARDING ---
@@ -120,6 +120,17 @@ const App: React.FC = () => {
   const [fastingStartTime, setFastingStartTime] = useState<Date | null>(null);
   const [stoolType, setStoolType] = useState<number | null>(null);
 
+  // Calculator Suite State
+  const [trackerTab, setTrackerTab] = useState<'TOOLS' | 'FUTURE'>('TOOLS');
+  const [calcActivity, setCalcActivity] = useState<ActivityLevel>(ActivityLevel.SEDENTARY);
+  const [bodyStats, setBodyStats] = useState({ waist: 90, neck: 38, hip: 100 }); // cm
+  
+  // New Calculator States
+  const [orm, setOrm] = useState({ weight: 60, reps: 5 });
+  const [lmpDate, setLmpDate] = useState("");
+  const [breathTimer, setBreathTimer] = useState(0);
+  const [isBreathHolding, setIsBreathHolding] = useState(false);
+
   // Initialize Data
   useEffect(() => {
     if (!dailyPlan.meal) handleGeneratePlan();
@@ -146,6 +157,15 @@ const App: React.FC = () => {
       }
       return () => clearInterval(interval);
   }, [eyeTimerActive, eyeTimerCount]);
+
+  // Breath Hold Timer
+  useEffect(() => {
+      let interval: any;
+      if (isBreathHolding) {
+          interval = setInterval(() => setBreathTimer(t => t + 1), 1000);
+      }
+      return () => clearInterval(interval);
+  }, [isBreathHolding]);
 
   const handleGeneratePlan = async () => {
     setLoadingPlan(true);
@@ -240,6 +260,93 @@ const App: React.FC = () => {
       });
   };
 
+  const navigateToCalculators = () => {
+      setView(AppView.CALCULATORS);
+  };
+
+  // --- CALCULATOR LOGIC ---
+
+  // 1. BMR & TDEE
+  const calculateBMR = () => {
+      // Mifflin-St Jeor
+      if (profile.gender === Gender.MALE) {
+          return (10 * profile.weight) + (6.25 * profile.height) - (5 * profile.age) + 5;
+      }
+      return (10 * profile.weight) + (6.25 * profile.height) - (5 * profile.age) - 161;
+  };
+  const bmr = calculateBMR();
+  const tdee = Math.round(bmr * calcActivity);
+
+  // 2. Protein & Water
+  const proteinNeeds = Math.round(profile.weight * (calcActivity > 1.5 ? 1.8 : 1.2)); // 1.2g to 1.8g per kg
+  const waterNeeds = (profile.weight * 0.033).toFixed(1);
+
+  // 3. Ideal Body Weight (Devine Formula)
+  const calculateIBW = () => {
+      const heightInInches = profile.height / 2.54;
+      const base = profile.gender === Gender.MALE ? 50 : 45.5;
+      const factor = 2.3 * (heightInInches - 60);
+      return Math.round(base + factor);
+  };
+  const ibw = calculateIBW();
+
+  // 4. Body Fat % (US Navy Method)
+  const calculateBodyFat = () => {
+      const h = profile.height;
+      const n = bodyStats.neck;
+      const w = bodyStats.waist;
+      const hip = bodyStats.hip;
+
+      if (profile.gender === Gender.MALE) {
+          // 495 / (1.0324 - 0.19077 * log10(waist - neck) + 0.15456 * log10(height)) - 450
+          if (w - n <= 0) return 0;
+          const val = 495 / (1.0324 - 0.19077 * Math.log10(w - n) + 0.15456 * Math.log10(h)) - 450;
+          return val > 0 ? val.toFixed(1) : 0;
+      } else {
+          // 495 / (1.29579 - 0.35004 * log10(waist + hip - neck) + 0.22100 * log10(height)) - 450
+          if (w + hip - n <= 0) return 0;
+          const val = 495 / (1.29579 - 0.35004 * Math.log10(w + hip - n) + 0.22100 * Math.log10(h)) - 450;
+          return val > 0 ? val.toFixed(1) : 0;
+      }
+  };
+  const bodyFat = calculateBodyFat();
+
+  // 5. Heart Rate Zones
+  const maxHR = 220 - profile.age;
+  const zone2Min = Math.round(maxHR * 0.6);
+  const zone2Max = Math.round(maxHR * 0.7);
+
+  // 6. Waist to Hip Ratio
+  const whr = (bodyStats.waist / bodyStats.hip).toFixed(2);
+  const getWhrRisk = () => {
+      const r = parseFloat(whr);
+      if (profile.gender === Gender.MALE) {
+          if (r <= 0.95) return 'Low Risk';
+          if (r <= 1.0) return 'Moderate';
+          return 'High Risk';
+      } else {
+          if (r <= 0.80) return 'Low Risk';
+          if (r <= 0.85) return 'Moderate';
+          return 'High Risk';
+      }
+  }
+
+  // 7. One Rep Max
+  const calculate1RM = () => {
+      // Epley Formula
+      return Math.round(orm.weight * (1 + orm.reps / 30));
+  }
+  const oneRepMax = calculate1RM();
+
+  // 8. Pregnancy Due Date
+  const calculateDueDate = () => {
+      if (!lmpDate) return null;
+      const date = new Date(lmpDate);
+      date.setDate(date.getDate() + 280);
+      return date.toLocaleDateString(undefined, {  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  const dueDate = calculateDueDate();
+
   // Render Logic
   return (
     <div className="min-h-screen bg-slate-50 flex text-gray-900 font-sans">
@@ -259,6 +366,7 @@ const App: React.FC = () => {
             { id: AppView.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
             { id: AppView.PLANNER, icon: Utensils, label: 'Day Planner' },
             { id: AppView.TRACKER, icon: Activity, label: 'Wellness Tools' },
+            { id: AppView.CALCULATORS, icon: Calculator, label: 'Calculators' },
             { id: AppView.HISTORY, icon: History, label: 'History' },
             { id: AppView.PROGRESS_PHOTOS, icon: Camera, label: 'Body Progress' },
             { id: AppView.PROFILE, icon: UserIcon, label: 'My Profile' },
@@ -351,14 +459,17 @@ const App: React.FC = () => {
                 <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-blue-50 rounded-full group-hover:scale-125 transition duration-500"></div>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-purple-100 relative overflow-hidden group">
+              <div 
+                 onClick={navigateToCalculators}
+                 className="bg-white p-5 rounded-2xl shadow-sm border border-teal-100 relative overflow-hidden group cursor-pointer hover:border-teal-300 transition"
+              >
                 <div className="flex justify-between items-start mb-2 relative z-10">
-                    <span className="text-gray-400 text-xs uppercase font-extrabold tracking-wider">Sleep Score</span>
-                    <BedDouble size={18} className="text-purple-500" />
+                    <span className="text-gray-400 text-xs uppercase font-extrabold tracking-wider">Calculators</span>
+                    <Calculator size={18} className="text-teal-500" />
                 </div>
-                <div className="text-3xl font-black text-gray-900 relative z-10">85 <span className="text-sm font-medium text-gray-400">/ 100</span></div>
-                <div className="mt-2 text-xs text-purple-600 font-bold relative z-10">Great Quality</div>
-                <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-purple-50 rounded-full group-hover:scale-125 transition duration-500"></div>
+                <div className="text-xl font-black text-gray-900 relative z-10">Health Tools</div>
+                <div className="mt-2 text-xs text-teal-600 font-bold relative z-10">BMI, TDEE, Body Fat</div>
+                <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-teal-50 rounded-full group-hover:scale-125 transition duration-500"></div>
               </div>
 
                <div className="bg-white p-5 rounded-2xl shadow-sm border border-green-100 relative overflow-hidden group">
@@ -377,29 +488,50 @@ const App: React.FC = () => {
               
               {/* Daily Focus (Left 2 cols) */}
               <div className="md:col-span-2 space-y-6">
-                 {/* Today's Goal Card */}
-                 <div className="bg-gradient-to-r from-brand-700 to-brand-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-brand-100">
-                    <div className="relative z-10 max-w-lg">
-                        <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold mb-4 border border-white/20">
-                             <Award size={14} className="text-yellow-300"/> Active Timer
+                 {/* Spine Health Alert (Redesigned Desk Warrior) */}
+                 <div className="bg-brand-700 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl shadow-brand-100 flex flex-col md:flex-row items-center gap-6">
+                    <div className="relative z-10 flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="inline-flex items-center gap-1.5 bg-yellow-400 text-brand-900 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200 shadow-sm">
+                                <AlertTriangle size={14} fill="currentColor" /> High Sedentary Risk
+                            </span>
                         </div>
-                        <h3 className="text-2xl font-bold mb-2">Desk Warrior Mission</h3>
-                        <p className="opacity-80 mb-6 leading-relaxed">You've been sedentary for 4 hours. Start the active timer to improve spine health.</p>
+                        <h3 className="text-2xl font-bold mb-2">Spine Health Alert</h3>
+                        <p className="opacity-90 text-sm mb-4 leading-relaxed">You've been sitting for 4 hours. Stiffness risk is increasing.</p>
+                        
+                        {/* Visual Stiffness Meter */}
+                        <div className="mb-6">
+                             <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">
+                                 <span>Relaxed</span>
+                                 <span>Stiff</span>
+                             </div>
+                             <div className="h-3 bg-brand-900/50 rounded-full overflow-hidden w-full max-w-sm relative">
+                                 <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 w-[80%] rounded-full"></div>
+                                 <div className="absolute top-0 bottom-0 w-1 bg-white shadow-lg left-[80%] scale-y-125"></div>
+                             </div>
+                        </div>
+
                         <div className="flex gap-3">
                             <button 
                                 onClick={startWorkout}
-                                className="bg-white text-brand-900 px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-lg flex items-center gap-2"
+                                className="bg-white text-brand-700 px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-50 transition shadow-lg flex items-center gap-2"
                             >
-                                <Play size={16} fill="currentColor"/> Start Routine
+                                <Play size={16} fill="currentColor"/> Start 5-min Stretch
                             </button>
-                            <button className="px-6 py-3 rounded-xl text-sm font-bold border border-white/30 hover:bg-white/10 transition">
-                                Skip
+                            <button className="px-5 py-3 rounded-xl text-sm font-bold border border-white/20 hover:bg-white/10 transition text-white">
+                                Snooze
                             </button>
                         </div>
                     </div>
-                    {/* Abstract Shapes */}
+                    {/* Illustration / Graphic */}
+                    <div className="relative z-10 w-32 h-32 md:w-40 md:h-40 flex-shrink-0 bg-brand-600 rounded-full flex items-center justify-center shadow-inner border-4 border-brand-500/30">
+                         <div className="animate-pulse-fast">
+                            <Activity size={64} className="text-brand-300"/>
+                         </div>
+                    </div>
+                    
+                    {/* Abstract Background */}
                     <div className="absolute right-0 top-0 w-64 h-64 bg-brand-500 opacity-20 rounded-full translate-x-10 -translate-y-10 blur-3xl"></div>
-                    <div className="absolute bottom-0 right-20 w-32 h-32 bg-teal-400 opacity-20 rounded-full translate-y-10 blur-2xl"></div>
                  </div>
 
                  {/* Charts Section */}
@@ -492,383 +624,357 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- VIEW: HISTORY --- */}
-        {view === AppView.HISTORY && (
-             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex justify-between items-center">
+        {/* --- VIEW: CALCULATORS (NEW) --- */}
+        {view === AppView.CALCULATORS && (
+            <div className="space-y-8 animate-in fade-in">
+                 <div className="flex justify-between items-center">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Scan History</h2>
-                        <p className="text-gray-500">Your past analyses and product insights.</p>
+                        <h2 className="text-2xl font-bold">Health Calculators</h2>
+                        <p className="text-gray-500">Comprehensive suite of medical & fitness tools.</p>
                     </div>
-                </div>
+                 </div>
 
-                {scanHistory.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
-                        <History size={48} className="mx-auto text-gray-300 mb-4" />
-                        <h3 className="text-lg font-bold text-gray-700">No History Yet</h3>
-                        <p className="text-gray-500 mb-6">Scan your first product to start building your health log.</p>
-                        <button onClick={() => { setSelectedScan(null); setShowScanner(true); }} className="bg-brand-600 text-white px-6 py-2 rounded-lg font-bold">Start Scanning</button>
-                    </div>
-                ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {scanHistory.map((scan, i) => (
-                            <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-md transition">
-                                <div className="h-48 overflow-hidden relative">
-                                    <img src={scan.imagePreview} alt="scan" className="w-full h-full object-cover group-hover:scale-110 transition duration-500"/>
-                                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-bold shadow-sm">
-                                        {new Date(scan.timestamp).toLocaleDateString()}
-                                    </div>
-                                </div>
-                                <div className="p-5">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded bg-gray-100 text-gray-600`}>{scan.type}</span>
-                                        <span className={`text-sm font-bold ${scan.recommendation === 'BUY' ? 'text-green-600' : scan.recommendation === 'AVOID' ? 'text-red-600' : 'text-orange-600'}`}>
-                                            {scan.recommendation?.replace('_', ' ')}
-                                        </span>
-                                    </div>
-                                    <h4 className="font-bold text-lg text-gray-800 mb-1">{scan.productName || 'Unknown Item'}</h4>
-                                    <p className="text-gray-500 text-sm line-clamp-2">{scan.analysis}</p>
-                                    
-                                    <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-                                        <div className="flex items-center gap-1 text-yellow-500">
-                                            <Award size={16} />
-                                            <span className="text-xs font-bold text-gray-700">{scan.score}/100</span>
-                                        </div>
-                                        <button onClick={() => handleViewScan(scan)} className="text-brand-600 text-sm font-bold hover:underline">View Details</button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-             </div>
-        )}
+                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                     
+                     {/* Global Input for Calc */}
+                     <div className="mb-8">
+                         <label className="block text-sm font-bold text-gray-700 mb-2">Your Activity Level</label>
+                         <input 
+                             type="range" 
+                             min="1.2" 
+                             max="1.9" 
+                             step="0.175" 
+                             value={calcActivity} 
+                             onChange={(e) => setCalcActivity(parseFloat(e.target.value))}
+                             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
+                         />
+                         <div className="flex justify-between text-xs text-gray-500 font-bold uppercase mt-2">
+                             <span>Sedentary</span>
+                             <span>Light</span>
+                             <span>Moderate</span>
+                             <span>Active</span>
+                             <span>Athlete</span>
+                         </div>
+                         <p className="text-center text-brand-600 font-bold mt-2 text-lg">
+                             {calcActivity === 1.2 ? 'Sedentary (Office Job)' : 
+                              calcActivity === 1.375 ? 'Light Exercise (1-2 days)' :
+                              calcActivity === 1.55 ? 'Moderate Exercise (3-5 days)' :
+                              calcActivity === 1.725 ? 'Heavy Exercise (6-7 days)' : 'Athlete (2x per day)'}
+                         </p>
+                     </div>
 
-        {/* --- VIEW: PROGRESS PHOTOS --- */}
-        {view === AppView.PROGRESS_PHOTOS && (
-             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Body Progress</h2>
-                        <p className="text-gray-500">Visual tracking of your transformation journey.</p>
-                    </div>
-                    <label className="cursor-pointer bg-brand-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-brand-700 transition flex items-center gap-2 shadow-lg shadow-brand-200">
-                        <Plus size={18} /> Add Photo
-                        <input type="file" className="hidden" accept="image/*" onChange={handleAddProgressPhoto} />
-                    </label>
-                </div>
+                     {/* Body Stats Input for Advanced Calc */}
+                     <div className="mb-8 p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                         <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Ruler size={16}/> Body Measurements (for Body Fat, WHR)</h4>
+                         <div className="grid grid-cols-3 gap-4">
+                             <div>
+                                 <label className="text-xs font-bold text-gray-500 uppercase">Neck (cm)</label>
+                                 <input type="number" value={bodyStats.neck} onChange={e => setBodyStats({...bodyStats, neck: parseInt(e.target.value)})} className="w-full p-2 rounded-lg mt-1 border border-gray-200 font-bold text-center" />
+                             </div>
+                             <div>
+                                 <label className="text-xs font-bold text-gray-500 uppercase">Waist (cm)</label>
+                                 <input type="number" value={bodyStats.waist} onChange={e => setBodyStats({...bodyStats, waist: parseInt(e.target.value)})} className="w-full p-2 rounded-lg mt-1 border border-gray-200 font-bold text-center" />
+                             </div>
+                             <div>
+                                 <label className="text-xs font-bold text-gray-500 uppercase">Hip (cm)</label>
+                                 <input type="number" value={bodyStats.hip} onChange={e => setBodyStats({...bodyStats, hip: parseInt(e.target.value)})} className="w-full p-2 rounded-lg mt-1 border border-gray-200 font-bold text-center" />
+                             </div>
+                         </div>
+                     </div>
 
-                {progressPhotos.length === 0 ? (
-                    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-3xl p-10 text-center border border-indigo-100">
-                         <Camera size={64} className="mx-auto text-indigo-300 mb-6" />
-                         <h3 className="text-xl font-bold text-indigo-900 mb-2">Start Your Visual Journey</h3>
-                         <p className="text-indigo-600 max-w-md mx-auto mb-8">Take a photo today to compare with your future self. We'll help you track hair growth, skin improvements, and weight changes.</p>
-                         <label className="cursor-pointer bg-white text-indigo-600 px-8 py-3 rounded-xl font-bold shadow-md hover:shadow-lg transition border border-indigo-100 inline-flex items-center gap-2">
-                            <Camera size={20}/> Upload First Photo
-                            <input type="file" className="hidden" accept="image/*" onChange={handleAddProgressPhoto} />
-                        </label>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {progressPhotos.map((photo, i) => (
-                            <div key={i} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 group relative">
-                                <div className="aspect-[3/4] rounded-xl overflow-hidden mb-3 relative">
-                                    <img src={photo.image} alt="progress" className="w-full h-full object-cover"/>
-                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                                        <button className="p-2 bg-white rounded-full text-gray-900 hover:scale-110 transition"><Share2 size={16}/></button>
-                                        <button className="p-2 bg-red-500 rounded-full text-white hover:scale-110 transition"><Trash2 size={16}/></button>
-                                    </div>
-                                </div>
-                                <div className="flex justify-between items-center px-1">
-                                    <span className="text-sm font-bold text-gray-800">{photo.date}</span>
-                                    <span className="text-xs text-gray-400 font-medium">{photo.note}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-             </div>
-        )}
+                     {/* Grid of Calculators */}
+                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                         
+                         {/* --- SECTION: BODY COMPOSITION --- */}
+                         
+                         {/* BMI Card */}
+                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-slate-700">BMI Check</h4><p className="text-xs text-slate-500">Body Mass Index</p></div>
+                                 <Scale size={20} className="text-slate-500" />
+                             </div>
+                             <div className="text-3xl font-black text-slate-800 mb-2">{(profile.weight / ((profile.height/100)**2)).toFixed(1)}</div>
+                             <div className="w-full bg-slate-200 rounded-full h-2 mb-2"><div className="h-full bg-slate-600 rounded-full" style={{width: '60%'}}></div></div>
+                             <p className="text-xs text-slate-600 font-bold">Normal Weight</p>
+                         </div>
 
-        {/* --- VIEW: PLANNER --- */}
-        {view === AppView.PLANNER && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-bold">Your Day Planner</h2>
-                        <p className="text-gray-500 text-sm">Meals, Shopping & Workouts</p>
-                    </div>
-                    <button onClick={handleGeneratePlan} disabled={loadingPlan} className="text-sm text-brand-600 font-bold hover:bg-brand-50 px-3 py-1.5 rounded-lg transition">
-                        {loadingPlan ? 'Crafting Plan...' : 'Regenerate Plan'}
-                    </button>
-                </div>
+                         {/* Body Fat Card */}
+                         <div className="bg-red-50 p-6 rounded-2xl border border-red-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-red-700">Body Fat %</h4><p className="text-xs text-red-500">US Navy Method</p></div>
+                                 <Percent size={20} className="text-red-500" />
+                             </div>
+                             <div className="text-3xl font-black text-red-900 mb-2">{bodyFat}%</div>
+                             <p className="text-xs text-red-700">Based on waist/neck/hip.</p>
+                         </div>
 
-                {loadingPlan && (
-                    <div className="p-20 text-center bg-white rounded-3xl border border-gray-100 shadow-sm">
-                        <div className="animate-spin w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <h3 className="text-lg font-bold text-gray-800">AI is planning your day...</h3>
-                        <p className="text-gray-500 text-sm">Generating recipes, shopping list and exercises.</p>
-                    </div>
-                )}
+                         {/* Waist to Hip Ratio */}
+                         <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-orange-700">WHR Score</h4><p className="text-xs text-orange-500">Metabolic Risk</p></div>
+                                 <Activity size={20} className="text-orange-500" />
+                             </div>
+                             <div className="text-3xl font-black text-orange-900 mb-2">{whr}</div>
+                             <p className="text-xs font-bold text-orange-700">{getWhrRisk()}</p>
+                         </div>
 
-                {!loadingPlan && dailyPlan.meal && (
-                    <div className="grid lg:grid-cols-2 gap-8">
-                        {/* Meal Plan */}
-                        <div className="space-y-6">
-                            <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                                <div className="p-2 bg-green-100 text-green-600 rounded-lg"><Utensils size={20}/></div>
-                                Today's Menu
-                            </h3>
-                            
-                            {/* Calorie Progress */}
-                            <div className="bg-white p-4 rounded-xl border border-gray-100">
-                                <div className="flex justify-between text-sm font-bold mb-1">
-                                    <span>Calories</span>
-                                    <span className="text-brand-600">850 / 2200 kcal</span>
-                                </div>
-                                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                                    <div className="bg-brand-500 w-[40%] h-full"></div>
-                                </div>
-                            </div>
+                         {/* Ideal Body Weight */}
+                         <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-purple-700">Ideal Weight</h4><p className="text-xs text-purple-500">Devine Formula</p></div>
+                                 <Target size={20} className="text-purple-500" />
+                             </div>
+                             <div className="text-3xl font-black text-purple-900 mb-2">{ibw} <span className="text-sm font-medium text-purple-500">kg</span></div>
+                             <p className="text-xs text-purple-700">Estimated healthy goal.</p>
+                         </div>
 
-                            <div className="space-y-4">
-                                {[
-                                    { label: 'Breakfast', food: dailyPlan.meal.breakfast, time: '8:00 AM', cal: '350 cal' },
-                                    { label: 'Lunch', food: dailyPlan.meal.lunch, time: '1:00 PM', cal: '550 cal' },
-                                    { label: 'Snack', food: dailyPlan.meal.snacks, time: '4:30 PM', cal: '150 cal' },
-                                    { label: 'Dinner', food: dailyPlan.meal.dinner, time: '8:00 PM', cal: '400 cal' },
-                                ].map((meal, idx) => (
-                                    <div key={idx} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center group hover:border-brand-200 transition">
-                                        <div className="flex items-start gap-4">
-                                            <div className="mt-1 w-10 h-10 rounded-full bg-brand-50 flex items-center justify-center text-brand-600 font-bold text-xs shadow-sm">
-                                                {idx + 1}
-                                            </div>
-                                            <div>
-                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">{meal.label}</span>
-                                                <p className="font-bold text-gray-800 text-lg">{meal.food}</p>
-                                                <p className="text-xs text-brand-600 mt-1 font-medium">{meal.time} • {meal.cal}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            {/* Shopping List */}
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                <h4 className="font-bold flex items-center gap-2 mb-4"><ShoppingCart size={18} /> Smart Shopping List</h4>
-                                <div className="space-y-2">
-                                    {shoppingList.map((item, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition select-none" onClick={() => toggleShoppingItem(i)}>
-                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${item.checked ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-300'}`}>
-                                                {item.checked && <CheckCircle2 size={14} />}
-                                            </div>
-                                            <span className={`text-sm ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.name}</span>
-                                        </div>
-                                    ))}
-                                    {shoppingList.length === 0 && <p className="text-gray-400 text-sm">Generating items...</p>}
-                                </div>
-                            </div>
-                        </div>
+                         {/* --- SECTION: ENERGY & NUTRITION --- */}
 
-                        {/* Workout Plan */}
-                        <div className="space-y-6">
-                            <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                                <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><Activity size={20}/></div>
-                                Desk Warrior Routine
-                            </h3>
-                            
-                            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                                <div className="bg-orange-50 p-6 border-b border-orange-100 flex justify-between items-center">
-                                    <div>
-                                        <div className="text-orange-800 font-bold">{dailyPlan.workout?.type}</div>
-                                        <p className="text-orange-700/80 text-sm mt-1">Reduced eye strain & improved posture.</p>
-                                    </div>
-                                    <button onClick={startWorkout} className="bg-white text-orange-600 p-3 rounded-full shadow-sm hover:scale-105 transition"><Play size={20} fill="currentColor"/></button>
-                                </div>
-                                <div className="divide-y divide-gray-100">
-                                    {dailyPlan.workout?.exercises.map((ex, i) => (
-                                        <div key={i} className="p-5 hover:bg-gray-50 transition flex gap-4">
-                                            <div className="flex-shrink-0 w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
-                                                🧘
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-bold text-gray-800">{ex.name}</span>
-                                                    <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-2 py-0.5 rounded">{ex.duration}</span>
-                                                </div>
-                                                <p className="text-sm text-gray-500 leading-relaxed">{ex.description}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                         {/* BMR Card */}
+                         <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-blue-700">BMR</h4><p className="text-xs text-blue-500">Calories at Rest</p></div>
+                                 <Flame size={20} className="text-blue-500" />
+                             </div>
+                             <div className="text-3xl font-black text-blue-800 mb-2">{Math.round(bmr)}</div>
+                             <p className="text-xs text-blue-600">Base metabolic rate.</p>
+                         </div>
 
-                             {/* Eye Care Tip Widget */}
-                            <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden transition-all duration-300">
-                                <div className="relative z-10">
-                                    <h4 className="font-bold flex items-center gap-2 mb-2"><MessageSquare size={18} /> Eye Care Rule 20-20-20</h4>
-                                    <p className="text-blue-100 text-sm mb-4">Every 20 minutes, look at something 20 feet away for 20 seconds.</p>
-                                    {eyeTimerActive ? (
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-3xl font-black tabular-nums">
-                                                {Math.floor(eyeTimerCount / 60)}:{(eyeTimerCount % 60).toString().padStart(2, '0')}
-                                            </span>
-                                            <button onClick={() => setEyeTimerActive(false)} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-xs font-bold">Stop</button>
-                                        </div>
-                                    ) : (
-                                        <button onClick={() => setEyeTimerActive(true)} className="bg-white text-blue-600 px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition">Start Timer</button>
-                                    )}
-                                </div>
-                                <div className="absolute -right-4 -bottom-10 text-9xl opacity-20 rotate-12">👁️</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                         {/* TDEE Card */}
+                         <div className="bg-brand-50 p-6 rounded-2xl border border-brand-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-brand-700">TDEE</h4><p className="text-xs text-brand-500">Total Energy</p></div>
+                                 <Zap size={20} className="text-brand-500" />
+                             </div>
+                             <div className="text-3xl font-black text-brand-900 mb-2">{tdee}</div>
+                             <p className="text-xs text-brand-700">Maintenance calories.</p>
+                         </div>
+                         
+                         {/* Protein Card */}
+                         <div className="bg-green-50 p-6 rounded-2xl border border-green-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-green-700">Protein</h4><p className="text-xs text-green-500">Daily Target</p></div>
+                                 <Utensils size={20} className="text-green-500" />
+                             </div>
+                             <div className="text-3xl font-black text-green-900 mb-2">{proteinNeeds}g</div>
+                             <p className="text-xs text-green-700">For muscle repair.</p>
+                         </div>
+
+                         {/* --- SECTION: PERFORMANCE --- */}
+
+                         {/* One Rep Max */}
+                         <div className="bg-gray-800 text-white p-6 rounded-2xl border border-gray-700 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold">1 Rep Max</h4><p className="text-xs text-gray-400">Strength Potential</p></div>
+                                 <Dumbbell size={20} className="text-gray-400" />
+                             </div>
+                             <div className="flex gap-2 mb-2">
+                                 <input type="number" className="w-16 bg-gray-700 rounded p-1 text-center text-sm font-bold" value={orm.weight} onChange={e => setOrm({...orm, weight: parseInt(e.target.value)})} placeholder="Kg" />
+                                 <input type="number" className="w-12 bg-gray-700 rounded p-1 text-center text-sm font-bold" value={orm.reps} onChange={e => setOrm({...orm, reps: parseInt(e.target.value)})} placeholder="Reps" />
+                             </div>
+                             <div className="text-3xl font-black text-brand-400 mb-1">{oneRepMax} <span className="text-sm text-gray-400">kg</span></div>
+                             <p className="text-xs text-gray-400">Epley Formula</p>
+                         </div>
+
+                         {/* Breath Hold Test */}
+                         <div className="bg-teal-50 p-6 rounded-2xl border border-teal-100 hover:shadow-md transition flex flex-col items-center text-center">
+                             <h4 className="font-bold text-teal-800 mb-1">Lung Capacity</h4>
+                             <p className="text-xs text-teal-600 mb-4">Breath Hold Test</p>
+                             
+                             <div className="w-20 h-20 rounded-full border-4 border-teal-200 flex items-center justify-center mb-4 bg-white relative">
+                                 <span className="text-2xl font-black text-teal-600">{breathTimer}s</span>
+                                 {isBreathHolding && <div className="absolute inset-0 border-4 border-teal-500 rounded-full animate-ping opacity-20"></div>}
+                             </div>
+                             
+                             <button 
+                                 onMouseDown={() => { setIsBreathHolding(true); setBreathTimer(0); }}
+                                 onMouseUp={() => setIsBreathHolding(false)}
+                                 onTouchStart={() => { setIsBreathHolding(true); setBreathTimer(0); }}
+                                 onTouchEnd={() => setIsBreathHolding(false)}
+                                 className="bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm active:scale-95 transition"
+                             >
+                                 Hold to Test
+                             </button>
+                         </div>
+
+                         {/* Pregnancy Due Date */}
+                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-100 hover:shadow-md transition">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div><h4 className="font-bold text-pink-700">Due Date</h4><p className="text-xs text-pink-500">Pregnancy Calc</p></div>
+                                 <Baby size={20} className="text-pink-500" />
+                             </div>
+                             <input type="date" className="w-full bg-white border border-pink-200 rounded-lg p-2 text-sm mb-3" onChange={(e) => setLmpDate(e.target.value)} />
+                             <div className="text-lg font-black text-pink-900 mb-1 leading-tight">{dueDate || '--'}</div>
+                             <p className="text-xs text-pink-700">Estimated Delivery</p>
+                         </div>
+
+                     </div>
+                 </div>
             </div>
         )}
 
          {/* --- VIEW: TRACKER (WELLNESS TOOLS) --- */}
          {view === AppView.TRACKER && (
              <div className="space-y-8 animate-in fade-in">
-                 <h2 className="text-2xl font-bold mb-4">Wellness Tools</h2>
-                 <div className="grid md:grid-cols-2 gap-6">
-                    {/* BMI Calculator */}
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-2 mb-6 text-brand-600">
-                             <Scale size={20} /> <h3 className="font-bold text-gray-800">BMI Calculator</h3>
-                        </div>
-                        <div className="flex justify-between items-center mb-6">
-                            <div className="text-center">
-                                <p className="text-xs text-gray-400 font-bold uppercase">Weight</p>
-                                <p className="text-2xl font-bold">{profile.weight} kg</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-xs text-gray-400 font-bold uppercase">Height</p>
-                                <p className="text-2xl font-bold">{profile.height} cm</p>
-                            </div>
-                            <div className="text-center p-3 bg-brand-50 rounded-xl">
-                                <p className="text-xs text-brand-500 font-bold uppercase">BMI Score</p>
-                                <p className="text-2xl font-black text-brand-600">{(profile.weight / ((profile.height/100)**2)).toFixed(1)}</p>
-                            </div>
-                        </div>
-                        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden mb-2">
-                             <div className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-500" style={{width: '70%'}}></div>
-                        </div>
-                        <div className="flex justify-between text-xs text-gray-400 font-medium">
-                            <span>Underweight</span>
-                            <span>Normal</span>
-                            <span>Obese</span>
-                        </div>
-                    </div>
-
-                     {/* Fasting Timer (New Feature) */}
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
-                         <div className="flex items-center gap-2 mb-4 text-orange-600">
-                             <Timer size={20} /> <h3 className="font-bold text-gray-800">Intermittent Fasting (16:8)</h3>
-                         </div>
-                         <div className="flex items-center gap-6">
-                             <div className="relative w-24 h-24 rounded-full border-4 border-orange-100 flex items-center justify-center">
-                                 {fastingStartTime ? (
-                                     <span className="text-lg font-bold text-orange-600">Active</span>
-                                 ) : (
-                                     <span className="text-sm font-bold text-gray-400">Off</span>
-                                 )}
-                             </div>
-                             <div className="flex-1">
-                                 {fastingStartTime ? (
-                                     <div>
-                                         <p className="text-xs text-gray-500 uppercase font-bold">Started at</p>
-                                         <p className="text-xl font-bold text-gray-900">{fastingStartTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                         <button onClick={() => setFastingStartTime(null)} className="mt-2 text-xs text-red-500 font-bold hover:underline">Stop Fast</button>
-                                     </div>
-                                 ) : (
-                                     <div>
-                                         <p className="text-sm text-gray-600 mb-2">Start your fasting window now.</p>
-                                         <button onClick={() => setFastingStartTime(new Date())} className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-orange-600 transition">Start Fast</button>
-                                     </div>
-                                 )}
-                             </div>
-                         </div>
-                    </div>
-
-                    {/* Breathing Tool */}
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center relative overflow-hidden">
-                        <h3 className="font-bold text-gray-800 mb-2 relative z-10 flex items-center gap-2"><Wind size={18}/> Stress Relief Breathing</h3>
-                        <p className="text-gray-500 text-sm mb-8 relative z-10">Follow the circle to relax.</p>
-                        
-                        <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center animate-[pulse_4s_ease-in-out_infinite] relative z-10">
-                             <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center animate-[pulse_4s_ease-in-out_infinite_reverse]">
-                                 <span className="text-xs font-bold text-blue-600">Breathe</span>
-                             </div>
-                        </div>
-                    </div>
-
-                    {/* Symptom Logger */}
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><Activity size={18}/> Symptom Logger</h3>
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {['Headache', 'Eye Strain', 'Acidity', 'Back Pain', 'Bloating'].map(sym => (
-                                <button 
-                                    key={sym} 
-                                    onClick={() => addSymptomTag(sym)}
-                                    className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition text-sm font-medium"
-                                >
-                                    + {sym}
-                                </button>
-                            ))}
-                        </div>
-                        <textarea 
-                            value={symptomText}
-                            onChange={(e) => setSymptomText(e.target.value)}
-                            className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-brand-200 resize-none h-24 text-sm" 
-                            placeholder="Describe how you feel today..."
-                        ></textarea>
+                 <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold">Wellness Tools</h2>
+                    {/* Tools Tab Switcher */}
+                    <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200 inline-flex">
                         <button 
-                            onClick={logSymptom}
-                            className={`mt-4 w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 ${showLogSuccess ? 'bg-green-600 text-white' : 'bg-gray-900 text-white hover:bg-black'}`}
+                            onClick={() => setTrackerTab('TOOLS')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${trackerTab === 'TOOLS' ? 'bg-brand-100 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}
                         >
-                            {showLogSuccess ? <CheckCircle2 size={18}/> : 'Log Entry'}
-                            {showLogSuccess && ' Logged!'}
+                            Trackers
+                        </button>
+                         <button 
+                            onClick={() => setTrackerTab('FUTURE')}
+                            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${trackerTab === 'FUTURE' ? 'bg-brand-100 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}
+                        >
+                            Roadmap
                         </button>
                     </div>
-
-                    {/* Gut Health Tracker (New Feature) */}
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">💩 Gut Health Tracker</h3>
-                         <p className="text-xs text-gray-500 mb-4">Track digestion for acidity insights.</p>
-                         <div className="flex justify-between gap-1 mb-4">
-                             {[1,2,3,4,5].map(type => (
-                                 <button 
-                                     key={type}
-                                     onClick={() => setStoolType(type)}
-                                     className={`flex-1 h-12 rounded-lg flex items-center justify-center font-bold text-lg transition ${stoolType === type ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800'}`}
-                                 >
-                                     {type}
-                                 </button>
-                             ))}
-                         </div>
-                         <p className="text-center text-xs text-gray-400 font-medium">Bristol Stool Scale (1: Hard - 5: Liquid)</p>
-                    </div>
-
-                    {/* Sleep Calc */}
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                         <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><BedDouble size={18}/> Sleep Cycle Calculator</h3>
-                         <div className="flex gap-4 mb-4">
-                             <div className="flex-1">
-                                 <label className="text-xs font-bold text-gray-400">Bedtime</label>
-                                 <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="23:00" />
-                             </div>
-                             <div className="flex-1">
-                                 <label className="text-xs font-bold text-gray-400">Wake Up</label>
-                                 <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="07:00" />
-                             </div>
-                         </div>
-                         <div className="p-4 bg-purple-50 rounded-xl text-center">
-                             <p className="text-purple-900 font-bold text-lg">5 Cycles Recommended</p>
-                             <p className="text-purple-600 text-xs">Wake up at 6:30 AM or 8:00 AM for best energy.</p>
-                         </div>
-                    </div>
                  </div>
+
+                 {/* TAB: TOOLS (Existing) */}
+                 {trackerTab === 'TOOLS' && (
+                     <div className="grid md:grid-cols-2 gap-6">
+                        
+                        {/* Fasting Timer */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                            <div className="flex items-center gap-2 mb-4 text-orange-600">
+                                <Timer size={20} /> <h3 className="font-bold text-gray-800">Intermittent Fasting (16:8)</h3>
+                            </div>
+                            <div className="flex items-center gap-6">
+                                <div className="relative w-24 h-24 rounded-full border-4 border-orange-100 flex items-center justify-center">
+                                    {fastingStartTime ? (
+                                        <span className="text-lg font-bold text-orange-600">Active</span>
+                                    ) : (
+                                        <span className="text-sm font-bold text-gray-400">Off</span>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    {fastingStartTime ? (
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase font-bold">Started at</p>
+                                            <p className="text-xl font-bold text-gray-900">{fastingStartTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                            <button onClick={() => setFastingStartTime(null)} className="mt-2 text-xs text-red-500 font-bold hover:underline">Stop Fast</button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <p className="text-sm text-gray-600 mb-2">Start your fasting window now.</p>
+                                            <button onClick={() => setFastingStartTime(new Date())} className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-orange-600 transition">Start Fast</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Breathing Tool */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center relative overflow-hidden">
+                            <h3 className="font-bold text-gray-800 mb-2 relative z-10 flex items-center gap-2"><Wind size={18}/> Stress Relief Breathing</h3>
+                            <p className="text-gray-500 text-sm mb-8 relative z-10">Follow the circle to relax.</p>
+                            
+                            <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center animate-[pulse_4s_ease-in-out_infinite] relative z-10">
+                                <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center animate-[pulse_4s_ease-in-out_infinite_reverse]">
+                                    <span className="text-xs font-bold text-blue-600">Breathe</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Symptom Logger */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><Activity size={18}/> Symptom Logger</h3>
+                            <div className="flex flex-wrap gap-2 mb-6">
+                                {['Headache', 'Eye Strain', 'Acidity', 'Back Pain', 'Bloating'].map(sym => (
+                                    <button 
+                                        key={sym} 
+                                        onClick={() => addSymptomTag(sym)}
+                                        className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition text-sm font-medium"
+                                    >
+                                        + {sym}
+                                    </button>
+                                ))}
+                            </div>
+                            <textarea 
+                                value={symptomText}
+                                onChange={(e) => setSymptomText(e.target.value)}
+                                className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-brand-200 resize-none h-24 text-sm" 
+                                placeholder="Describe how you feel today..."
+                            ></textarea>
+                            <button 
+                                onClick={logSymptom}
+                                className={`mt-4 w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 ${showLogSuccess ? 'bg-green-600 text-white' : 'bg-gray-900 text-white hover:bg-black'}`}
+                            >
+                                {showLogSuccess ? <CheckCircle2 size={18}/> : 'Log Entry'}
+                                {showLogSuccess && ' Logged!'}
+                            </button>
+                        </div>
+
+                        {/* Gut Health Tracker */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">💩 Gut Health Tracker</h3>
+                            <p className="text-xs text-gray-500 mb-4">Track digestion for acidity insights.</p>
+                            <div className="flex justify-between gap-1 mb-4">
+                                {[1,2,3,4,5].map(type => (
+                                    <button 
+                                        key={type}
+                                        onClick={() => setStoolType(type)}
+                                        className={`flex-1 h-12 rounded-lg flex items-center justify-center font-bold text-lg transition ${stoolType === type ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800'}`}
+                                    >
+                                        {type}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-center text-xs text-gray-400 font-medium">Bristol Stool Scale (1: Hard - 5: Liquid)</p>
+                        </div>
+
+                        {/* Sleep Calc */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><BedDouble size={18}/> Sleep Cycle Calculator</h3>
+                            <div className="flex gap-4 mb-4">
+                                <div className="flex-1">
+                                    <label className="text-xs font-bold text-gray-400">Bedtime</label>
+                                    <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="23:00" />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-xs font-bold text-gray-400">Wake Up</label>
+                                    <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="07:00" />
+                                </div>
+                            </div>
+                            <div className="p-4 bg-purple-50 rounded-xl text-center">
+                                <p className="text-purple-900 font-bold text-lg">5 Cycles Recommended</p>
+                                <p className="text-purple-600 text-xs">Wake up at 6:30 AM or 8:00 AM for best energy.</p>
+                            </div>
+                        </div>
+                     </div>
+                 )}
+
+                 {/* TAB: FUTURE ROADMAP */}
+                 {trackerTab === 'FUTURE' && (
+                     <div className="space-y-6">
+                         <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-8 text-white text-center">
+                             <Construction size={48} className="mx-auto mb-4 text-brand-400" />
+                             <h3 className="text-2xl font-bold mb-2">Coming Soon</h3>
+                             <p className="text-gray-400 mb-8">We are building advanced AI features to beat the competition.</p>
+                             
+                             <div className="grid md:grid-cols-3 gap-4 text-left">
+                                 <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
+                                     <h4 className="font-bold text-brand-300 mb-1">Sleep Sounds</h4>
+                                     <p className="text-xs text-gray-300">AI-generated brown noise & binaural beats.</p>
+                                 </div>
+                                 <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
+                                     <h4 className="font-bold text-brand-300 mb-1">AI Doctor Report</h4>
+                                     <p className="text-xs text-gray-300">Export your monthly logs as a PDF for your GP.</p>
+                                 </div>
+                                 <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
+                                     <h4 className="font-bold text-brand-300 mb-1">Period Tracker</h4>
+                                     <p className="text-xs text-gray-300">Cycle sync your workouts & nutrition.</p>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                 )}
+
              </div>
          )}
 
@@ -892,9 +998,9 @@ const App: React.FC = () => {
                   <ScanLine size={24} />
               </button>
           </div>
-          <button onClick={() => setView(AppView.HISTORY)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.HISTORY ? 'text-brand-600' : 'text-gray-400'}`}>
-              <History size={22} />
-              <span className="text-[10px] font-bold mt-1">History</span>
+          <button onClick={() => setView(AppView.CALCULATORS)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.CALCULATORS ? 'text-brand-600' : 'text-gray-400'}`}>
+              <Calculator size={22} />
+              <span className="text-[10px] font-bold mt-1">Calc</span>
           </button>
           <button onClick={() => setView(AppView.TRACKER)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.TRACKER ? 'text-brand-600' : 'text-gray-400'}`}>
               <Activity size={22} />

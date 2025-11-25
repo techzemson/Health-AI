@@ -153,25 +153,25 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
               </div>
               
               <div className="mt-8 grid grid-cols-2 gap-4 w-full max-w-lg">
-                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
+                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100 hover:shadow-md transition">
                      <List size={20} className="text-blue-500 mb-2"/>
                      <h4 className="font-bold text-gray-800 text-sm">Ingredient Check</h4>
-                     <p className="text-xs text-gray-500">Detects harmful additives & allergens</p>
+                     <p className="text-xs text-gray-500">Detects harmful additives</p>
                  </div>
-                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
+                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100 hover:shadow-md transition">
                      <Monitor size={20} className="text-purple-500 mb-2"/>
                      <h4 className="font-bold text-gray-800 text-sm">Desk Roast</h4>
-                     <p className="text-xs text-gray-500">Ergonomic analysis of your workspace</p>
+                     <p className="text-xs text-gray-500">Ergonomic analysis</p>
                  </div>
-                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
+                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100 hover:shadow-md transition">
                      <Flame size={20} className="text-orange-500 mb-2"/>
                      <h4 className="font-bold text-gray-800 text-sm">Burn It Off</h4>
-                     <p className="text-xs text-gray-500">Activity needed to burn calories</p>
+                     <p className="text-xs text-gray-500">Calorie activity check</p>
                  </div>
-                  <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
+                  <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100 hover:shadow-md transition">
                      <Leaf size={20} className="text-green-500 mb-2"/>
                      <h4 className="font-bold text-gray-800 text-sm">Eco Score</h4>
-                     <p className="text-xs text-gray-500">Environmental impact rating</p>
+                     <p className="text-xs text-gray-500">Environmental impact</p>
                  </div>
               </div>
 
@@ -266,7 +266,6 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                                     <h5 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">AI Analysis</h5>
-                                    {/* Render analysis with bullet points if possible */}
                                     <div className="text-gray-700 leading-relaxed text-lg">
                                         {result.analysis?.split('\n').map((line, i) => (
                                             <p key={i} className="mb-2">{line}</p>
@@ -440,7 +439,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                              </div>
                         )}
                         
-                        {/* Affiliate Links - Always visible at bottom if exist */}
+                        {/* Affiliate Links */}
                         {result.affiliateLinks && result.affiliateLinks.length > 0 && (
                             <div className="mt-8 pt-6 border-t border-gray-100">
                                 <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">

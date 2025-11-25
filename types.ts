@@ -8,13 +8,22 @@ export enum AppView {
   COMMUNITY = 'COMMUNITY',
   PROFILE = 'PROFILE',
   HISTORY = 'HISTORY',
-  PROGRESS_PHOTOS = 'PROGRESS_PHOTOS'
+  PROGRESS_PHOTOS = 'PROGRESS_PHOTOS',
+  CALCULATORS = 'CALCULATORS'
 }
 
 export enum Gender {
   MALE = 'Male',
   FEMALE = 'Female',
   OTHER = 'Other'
+}
+
+export enum ActivityLevel {
+  SEDENTARY = 1.2,
+  LIGHT = 1.375,
+  MODERATE = 1.55,
+  ACTIVE = 1.725,
+  VERY_ACTIVE = 1.9
 }
 
 export interface UserProfile {
