@@ -1,0 +1,8 @@
+{
+  "name": "Health AI",
+  "description": "A personalized AI Fitness & Nutrition Planner with advanced body/product scanning, voice assistance, and holistic health tracking.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
