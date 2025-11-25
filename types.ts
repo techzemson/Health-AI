@@ -1,3 +1,4 @@
+
 export enum AppView {
   ONBOARDING = 'ONBOARDING',
   DASHBOARD = 'DASHBOARD',
@@ -5,7 +6,9 @@ export enum AppView {
   SCANNER = 'SCANNER',
   TRACKER = 'TRACKER',
   COMMUNITY = 'COMMUNITY',
-  PROFILE = 'PROFILE'
+  PROFILE = 'PROFILE',
+  HISTORY = 'HISTORY',
+  PROGRESS_PHOTOS = 'PROGRESS_PHOTOS'
 }
 
 export enum Gender {
@@ -27,6 +30,9 @@ export interface UserProfile {
   allergies: string[];
   skinType?: string;
   hairCondition?: string;
+  xp: number;
+  level: number;
+  badges: string[];
 }
 
 export interface DailyLog {
@@ -38,16 +44,37 @@ export interface DailyLog {
   steps: number;
 }
 
+export interface Ingredient {
+  name: string;
+  riskLevel: 'SAFE' | 'MODERATE' | 'HARMFUL';
+  description: string;
+}
+
+export interface MacroData {
+  name: string;
+  value: number; // grams or percentage
+  fill: string; // Color hex for chart
+}
+
 export interface ScanResult {
   id: string;
   timestamp: number;
   type: 'FOOD' | 'PRODUCT' | 'SKIN' | 'OTHER';
-  imagePreview: string;
+  imagePreview: string; // Base64
   productName?: string;
-  analysis: string;
+  analysis: string; // General summary
   isHarmful: boolean;
   score: number; // 0-100
   recommendation: 'BUY' | 'AVOID' | 'CONSULT_DOCTOR';
+  
+  // Advanced Details
+  ingredients: Ingredient[];
+  macros: MacroData[]; // For pie chart
+  pros: string[];
+  cons: string[];
+  healthBenefits: string[];
+  usageInstructions: string;
+  
   affiliateLinks?: {
     name: string;
     url: string;
@@ -74,4 +101,11 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: number;
+}
+
+export interface ProgressPhoto {
+  id: string;
+  date: string;
+  image: string;
+  note: string;
 }

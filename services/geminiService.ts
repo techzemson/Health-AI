@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ScanResult, UserProfile, MealPlan, WorkoutPlan } from "../types";
 
@@ -22,19 +23,39 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
   const model = "gemini-2.5-flash"; 
   
   const prompt = `
-    Analyze this image in the context of a user with these attributes:
+    Analyze this image deeply for a user with these attributes:
     Age: ${userProfile.age}, Gender: ${userProfile.gender}, Issues: ${userProfile.healthIssues.join(', ')}.
     
     Identify what is in the image (Food, Supplement, Skincare Product, or Body Part/Skin Issue).
 
-    Return a JSON response with:
+    Return a DETAILED JSON response.
+    
+    If it is FOOD:
+    - Estimate Macros (Protein, Carbs, Fat, Fiber) for a Pie Chart.
+    - list ingredients if visible or inferred.
+    
+    If it is a PRODUCT:
+    - List ingredients found on label or inferred.
+    - Flag harmful chemicals (Parabens, Sulfates, High Sugar, etc).
+    
+    If it is SKIN/BODY:
+    - Analyze condition.
+    - Suggest routine.
+
+    JSON Schema requirements:
     - type: "FOOD" | "PRODUCT" | "SKIN" | "OTHER"
-    - productName: Name of item or condition detected.
-    - isHarmful: boolean (true if bad ingredients or dangerous skin condition).
+    - productName: Name of item or condition.
+    - isHarmful: boolean.
     - score: 0-100 (Health score).
-    - recommendation: "BUY" | "AVOID" | "CONSULT_DOCTOR" (Use CONSULT_DOCTOR for severe skin issues).
-    - analysis: A detailed 2-paragraph explanation. If food/product, check ingredients for user's allergies/health issues (e.g., acidity triggers). If skin, suggest care routine.
-    - affiliateLinks: Array of 2 suggested alternative or remedy products available on Amazon/Flipkart.
+    - recommendation: "BUY" | "AVOID" | "CONSULT_DOCTOR".
+    - analysis: A 2-3 sentence summary.
+    - pros: Array of 3-5 good points (bullet points).
+    - cons: Array of 3-5 bad points/risks (bullet points).
+    - healthBenefits: Array of specific benefits for the user's condition.
+    - usageInstructions: How/When to consume or use.
+    - ingredients: Array of objects { name, riskLevel: "SAFE"|"MODERATE"|"HARMFUL", description }.
+    - macros: Array of objects { name: "Protein"|"Carbs"|"Fat"|"Other", value: number (percentage 0-100), fill: string (hex color) }.
+    - affiliateLinks: Array of 2 suggested products.
   `;
 
   try {
@@ -57,6 +78,32 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
             score: { type: Type.INTEGER },
             recommendation: { type: Type.STRING, enum: ["BUY", "AVOID", "CONSULT_DOCTOR"] },
             analysis: { type: Type.STRING },
+            pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+            cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+            healthBenefits: { type: Type.ARRAY, items: { type: Type.STRING } },
+            usageInstructions: { type: Type.STRING },
+            ingredients: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  riskLevel: { type: Type.STRING, enum: ["SAFE", "MODERATE", "HARMFUL"] },
+                  description: { type: Type.STRING }
+                }
+              }
+            },
+            macros: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  value: { type: Type.NUMBER },
+                  fill: { type: Type.STRING }
+                }
+              }
+            },
             affiliateLinks: {
               type: Type.ARRAY,
               items: {
