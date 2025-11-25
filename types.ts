@@ -56,6 +56,12 @@ export interface MacroData {
   fill: string; // Color hex for chart
 }
 
+export interface RecipeSuggestion {
+  name: string;
+  time: string;
+  difficulty: string;
+}
+
 export interface ScanResult {
   id: string;
   timestamp: number;
@@ -75,6 +81,16 @@ export interface ScanResult {
   healthBenefits: string[];
   usageInstructions: string;
   
+  // New Advanced Features
+  novaScore?: number; // 1 (Unprocessed) to 4 (Ultra-processed)
+  ecoScore?: string; // A, B, C, D, E
+  calories?: number;
+  burnTimeWalking?: string; // e.g., "25 mins"
+  burnTimeRunning?: string; // e.g., "10 mins"
+  glycemicLoad?: 'LOW' | 'MEDIUM' | 'HIGH';
+  storageTips?: string;
+  recipes?: RecipeSuggestion[];
+  
   affiliateLinks?: {
     name: string;
     url: string;
@@ -88,6 +104,7 @@ export interface MealPlan {
   dinner: string;
   snacks: string;
   nutritionalHighlights: string[];
+  shoppingList?: string[];
 }
 
 export interface WorkoutPlan {

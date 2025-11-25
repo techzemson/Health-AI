@@ -1,6 +1,6 @@
 
-import React, { useState, useRef } from 'react';
-import { Camera, AlertTriangle, CheckCircle, ShoppingBag, X, Loader2, Info, List, PieChart as PieChartIcon, Activity, Heart, ShieldAlert } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, AlertTriangle, CheckCircle, ShoppingBag, X, Loader2, Info, List, PieChart as PieChartIcon, Activity, Heart, ShieldAlert, Zap, Leaf, Thermometer, Flame, Clock, ChefHat, BookOpen } from 'lucide-react';
 import { analyzeImage } from '../services/geminiService';
 import { UserProfile, ScanResult } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
@@ -9,17 +9,26 @@ interface ScannerProps {
   userProfile: UserProfile;
   onClose: () => void;
   onSave: (result: ScanResult) => void;
+  initialData?: ScanResult | null; // For Read-Only History Mode
 }
 
-type Tab = 'OVERVIEW' | 'INGREDIENTS' | 'MACROS';
+type Tab = 'OVERVIEW' | 'INGREDIENTS' | 'MACROS' | 'RECIPES';
 
-const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
-  const [image, setImage] = useState<string | null>(null);
+const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initialData }) => {
+  const [image, setImage] = useState<string | null>(initialData?.imagePreview || null);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<Partial<ScanResult> | null>(null);
+  const [result, setResult] = useState<Partial<ScanResult> | null>(initialData || null);
   const [activeTab, setActiveTab] = useState<Tab>('OVERVIEW');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // If initial data is provided, we are in "Read Mode", no need to scan
+  useEffect(() => {
+    if (initialData) {
+        setResult(initialData);
+        setImage(initialData.imagePreview);
+    }
+  }, [initialData]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -80,9 +89,40 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
     }
   };
 
+  const renderNovaScore = (score?: number) => {
+      if (!score) return null;
+      return (
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Processing Level</span>
+              <div className="flex items-center gap-1 w-full justify-between px-2">
+                  {[1,2,3,4].map(i => (
+                      <div key={i} className={`h-2 flex-1 rounded-full mx-0.5 ${score === i ? (score > 2 ? 'bg-red-500' : 'bg-green-500') : 'bg-gray-200'}`}></div>
+                  ))}
+              </div>
+              <p className="mt-2 font-bold text-gray-700">NOVA Group {score}</p>
+              <p className="text-xs text-gray-500">{score === 1 ? 'Unprocessed' : score === 4 ? 'Ultra-Processed' : 'Moderately Processed'}</p>
+          </div>
+      );
+  };
+
+  const renderEcoScore = (score?: string) => {
+      if (!score) return null;
+      const color = score === 'A' ? 'text-green-600 bg-green-100' : score === 'E' ? 'text-red-600 bg-red-100' : 'text-yellow-600 bg-yellow-100';
+      return (
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Eco Impact</span>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl ${color}`}>
+                  {score}
+              </div>
+              <p className="mt-2 font-bold text-gray-700">Environment</p>
+              <div className="flex items-center gap-1 text-xs text-gray-500"><Leaf size={10} /> Footprint</div>
+          </div>
+      );
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-md">
-      <div className="bg-white w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-300">
         
         {/* Header */}
         <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-brand-600 to-brand-teal text-white sticky top-0 z-10">
@@ -99,7 +139,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
         <div className="flex-1 overflow-y-auto p-0 bg-slate-50">
           
           {!image && (
-            <div className="flex flex-col items-center justify-center h-[500px] p-6 text-center">
+            <div className="flex flex-col items-center justify-center h-[600px] p-6 text-center">
               <div 
                   className="w-full max-w-sm h-64 border-3 border-dashed border-brand-300 rounded-3xl bg-brand-50 hover:bg-brand-100 transition cursor-pointer flex flex-col items-center justify-center group"
                   onClick={() => fileInputRef.current?.click()}
@@ -111,16 +151,26 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
                  <p className="text-brand-600 text-sm mt-1">Food, Labels, Skin, or Products</p>
               </div>
               
-              <div className="mt-8 grid grid-cols-2 gap-4 w-full max-w-sm">
-                 <div className="bg-white p-4 rounded-xl shadow-sm text-left">
+              <div className="mt-8 grid grid-cols-2 gap-4 w-full max-w-lg">
+                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
                      <List size={20} className="text-blue-500 mb-2"/>
                      <h4 className="font-bold text-gray-800 text-sm">Ingredient Check</h4>
-                     <p className="text-xs text-gray-500">Detects harmful additives</p>
+                     <p className="text-xs text-gray-500">Detects harmful additives & allergens</p>
                  </div>
-                 <div className="bg-white p-4 rounded-xl shadow-sm text-left">
+                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
                      <PieChartIcon size={20} className="text-purple-500 mb-2"/>
                      <h4 className="font-bold text-gray-800 text-sm">Macro Analysis</h4>
                      <p className="text-xs text-gray-500">Protein, Carbs & Fat breakdown</p>
+                 </div>
+                 <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
+                     <Flame size={20} className="text-orange-500 mb-2"/>
+                     <h4 className="font-bold text-gray-800 text-sm">Burn It Off</h4>
+                     <p className="text-xs text-gray-500">Activity needed to burn calories</p>
+                 </div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
+                     <Leaf size={20} className="text-green-500 mb-2"/>
+                     <h4 className="font-bold text-gray-800 text-sm">Eco Score</h4>
+                     <p className="text-xs text-gray-500">Environmental impact rating</p>
                  </div>
               </div>
 
@@ -155,14 +205,14 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
                             <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
                                 <div className="bg-gradient-to-r from-brand-400 to-brand-600 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                             </div>
-                            <p className="text-gray-400 text-xs mt-4 text-center">Scanning for hidden sugars, allergens, and nutritional value.</p>
+                            <p className="text-gray-400 text-xs mt-4 text-center">Checking 150+ additives, macros, and eco-impact.</p>
                         </div>
                     )}
                     
                     {result && !analyzing && (
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black to-transparent p-6 text-white">
+                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 text-white">
                              <div className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-xs font-bold mb-2 uppercase tracking-wide">
-                                 {result.type} DETECTED
+                                 {result.type}
                              </div>
                              <h3 className="text-2xl font-bold leading-tight">{result.productName || 'Unknown Item'}</h3>
                         </div>
@@ -175,32 +225,33 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
                     
                     {/* Verdict Banner */}
                     <div className={`p-6 border-b flex justify-between items-center ${getStatusColor(result.recommendation)} bg-opacity-20`}>
-                        <div className="flex items-center gap-3">
-                             {result.recommendation === 'BUY' && <CheckCircle className="w-8 h-8"/>}
-                             {result.recommendation === 'AVOID' && <ShieldAlert className="w-8 h-8"/>}
-                             {result.recommendation === 'CONSULT_DOCTOR' && <Activity className="w-8 h-8"/>}
+                        <div className="flex items-center gap-4">
+                             {result.recommendation === 'BUY' && <CheckCircle className="w-10 h-10"/>}
+                             {result.recommendation === 'AVOID' && <ShieldAlert className="w-10 h-10"/>}
+                             {result.recommendation === 'CONSULT_DOCTOR' && <Activity className="w-10 h-10"/>}
                              <div>
-                                 <h4 className="font-black text-xl tracking-tight">{result.recommendation?.replace('_', ' ')}</h4>
-                                 <p className="text-xs opacity-80 font-medium">Based on your profile</p>
+                                 <h4 className="font-black text-2xl tracking-tight">{result.recommendation?.replace('_', ' ')}</h4>
+                                 <p className="text-xs opacity-80 font-medium">AI Health Verdict</p>
                              </div>
                         </div>
-                        <div className="text-center">
+                        <div className="text-center bg-white/50 px-4 py-2 rounded-xl backdrop-blur-sm">
                             <span className="block text-4xl font-black">{result.score}</span>
                             <span className="text-[10px] font-bold uppercase opacity-60">Health Score</span>
                         </div>
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex border-b bg-white">
+                    <div className="flex border-b bg-white overflow-x-auto no-scrollbar">
                         {[
                             { id: 'OVERVIEW', label: 'Overview', icon: Info },
                             { id: 'INGREDIENTS', label: 'Ingredients', icon: List },
                             { id: 'MACROS', label: 'Nutrition', icon: PieChartIcon },
+                            { id: 'RECIPES', label: 'Recipes', icon: ChefHat },
                         ].map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as Tab)}
-                                className={`flex-1 py-4 flex items-center justify-center gap-2 text-sm font-bold transition border-b-2 ${activeTab === tab.id ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+                                className={`flex-1 min-w-[100px] py-4 flex items-center justify-center gap-2 text-sm font-bold transition border-b-2 whitespace-nowrap ${activeTab === tab.id ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
                             >
                                 <tab.icon size={16} /> {tab.label}
                             </button>
@@ -213,8 +264,36 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
                         {activeTab === 'OVERVIEW' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                                    <h5 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Analysis</h5>
-                                    <p className="text-gray-700 leading-relaxed">{result.analysis}</p>
+                                    <h5 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">AI Analysis</h5>
+                                    <p className="text-gray-700 leading-relaxed text-lg">{result.analysis}</p>
+                                </div>
+                                
+                                {/* Advanced Metrics Grid */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {renderNovaScore(result.novaScore)}
+                                    {renderEcoScore(result.ecoScore)}
+                                    {result.calories && (
+                                        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center col-span-2 md:col-span-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Burn It Off</span>
+                                            <div className="flex gap-6 items-center">
+                                                <div className="text-center">
+                                                    <div className="text-orange-500 font-black text-xl flex items-center gap-1 justify-center">
+                                                        <Flame size={16} /> {result.calories}
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-400 uppercase font-bold">Calories</span>
+                                                </div>
+                                                <div className="h-8 w-px bg-gray-200"></div>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="text-xs font-medium text-gray-600 flex items-center gap-2">
+                                                        <Activity size={12} className="text-blue-500"/> Walk: <b>{result.burnTimeWalking}</b>
+                                                    </div>
+                                                    <div className="text-xs font-medium text-gray-600 flex items-center gap-2">
+                                                        <Zap size={12} className="text-yellow-500"/> Run: <b>{result.burnTimeRunning}</b>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="grid md:grid-cols-2 gap-4">
@@ -242,10 +321,13 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
                                     </div>
                                 </div>
 
-                                {result.usageInstructions && (
-                                    <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                                        <h5 className="text-blue-800 font-bold mb-2">Usage Guide</h5>
-                                        <p className="text-sm text-blue-700">{result.usageInstructions}</p>
+                                {result.storageTips && (
+                                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
+                                        <Thermometer className="text-blue-500 shrink-0 mt-1" size={20} />
+                                        <div>
+                                            <h5 className="text-blue-800 font-bold text-sm">Storage Tip</h5>
+                                            <p className="text-sm text-blue-700">{result.storageTips}</p>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -309,14 +391,43 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
                                                  </div>
                                              ))}
                                         </div>
+                                        {result.glycemicLoad && (
+                                            <div className="mt-6 text-center p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                                                <span className="text-xs uppercase font-bold text-indigo-400">Glycemic Load</span>
+                                                <p className="text-lg font-bold text-indigo-700">{result.glycemicLoad}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="text-center p-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                                         <Activity className="mx-auto text-gray-300 mb-3" size={48} />
-                                        <p className="text-gray-500">Nutritional data not applicable or unavailable for this item.</p>
+                                        <p className="text-gray-500">Nutritional data not applicable.</p>
                                     </div>
                                 )}
                             </div>
+                        )}
+                        
+                        {activeTab === 'RECIPES' && (
+                             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
+                                 {result.recipes && result.recipes.length > 0 ? result.recipes.map((recipe, i) => (
+                                     <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+                                         <div>
+                                             <h5 className="font-bold text-gray-800">{recipe.name}</h5>
+                                             <div className="flex gap-3 mt-1">
+                                                 <span className="text-xs text-gray-500 flex items-center gap-1"><Clock size={12}/> {recipe.time}</span>
+                                                 <span className="text-xs text-gray-500 flex items-center gap-1"><Activity size={12}/> {recipe.difficulty}</span>
+                                             </div>
+                                         </div>
+                                         <button className="text-brand-600 bg-brand-50 p-2 rounded-lg hover:bg-brand-100">
+                                             <BookOpen size={18}/>
+                                         </button>
+                                     </div>
+                                 )) : (
+                                     <div className="text-center p-10 bg-gray-50 rounded-xl">
+                                         <p className="text-gray-400">No recipes found for this item.</p>
+                                     </div>
+                                 )}
+                             </div>
                         )}
                         
                         {/* Affiliate Links - Always visible at bottom if exist */}
@@ -347,8 +458,15 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave }) => {
                          <button onClick={onClose} className="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition">
                              Close
                          </button>
-                         <button onClick={() => { fileInputRef.current?.click(); setImage(null); setResult(null); }} className="flex-1 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition flex items-center justify-center gap-2">
-                             <Camera size={18} /> Scan New
+                         <button onClick={() => { 
+                             if (fileInputRef.current) {
+                                 fileInputRef.current.value = ''; // Reset input
+                             }
+                             fileInputRef.current?.click(); 
+                             setImage(null); 
+                             setResult(null); 
+                          }} className="flex-1 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition flex items-center justify-center gap-2">
+                             <Camera size={18} /> {initialData ? 'Scan New' : 'Scan Again'}
                          </button>
                     </div>
 

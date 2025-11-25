@@ -31,12 +31,17 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
     Return a DETAILED JSON response.
     
     If it is FOOD:
-    - Estimate Macros (Protein, Carbs, Fat, Fiber) for a Pie Chart.
-    - list ingredients if visible or inferred.
+    - Estimate Macros (Protein, Carbs, Fat, Fiber).
+    - Determine NOVA Score (1=Unprocessed to 4=Ultra-processed).
+    - Estimate Eco Score (A=Low Impact to E=High Impact).
+    - Estimate Calories.
+    - Calculate "Burn Time" (Walking vs Running).
+    - Suggest 2 simple recipes using this.
     
     If it is a PRODUCT:
     - List ingredients found on label or inferred.
-    - Flag harmful chemicals (Parabens, Sulfates, High Sugar, etc).
+    - Flag harmful chemicals.
+    - Give a "Buy/No Buy" rating.
     
     If it is SKIN/BODY:
     - Analyze condition.
@@ -49,10 +54,18 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
     - score: 0-100 (Health score).
     - recommendation: "BUY" | "AVOID" | "CONSULT_DOCTOR".
     - analysis: A 2-3 sentence summary.
-    - pros: Array of 3-5 good points (bullet points).
-    - cons: Array of 3-5 bad points/risks (bullet points).
+    - pros: Array of 3-5 good points.
+    - cons: Array of 3-5 bad points/risks.
     - healthBenefits: Array of specific benefits for the user's condition.
     - usageInstructions: How/When to consume or use.
+    - storageTips: How to store it (e.g. "Keep refrigerated").
+    - novaScore: 1-4 (integer, optional for non-food).
+    - ecoScore: "A"|"B"|"C"|"D"|"E" (string, optional).
+    - calories: number (estimate).
+    - burnTimeWalking: string (e.g. "20 mins").
+    - burnTimeRunning: string (e.g. "8 mins").
+    - glycemicLoad: "LOW"|"MEDIUM"|"HIGH".
+    - recipes: Array of { name, time, difficulty }.
     - ingredients: Array of objects { name, riskLevel: "SAFE"|"MODERATE"|"HARMFUL", description }.
     - macros: Array of objects { name: "Protein"|"Carbs"|"Fat"|"Other", value: number (percentage 0-100), fill: string (hex color) }.
     - affiliateLinks: Array of 2 suggested products.
@@ -82,6 +95,24 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
             cons: { type: Type.ARRAY, items: { type: Type.STRING } },
             healthBenefits: { type: Type.ARRAY, items: { type: Type.STRING } },
             usageInstructions: { type: Type.STRING },
+            storageTips: { type: Type.STRING },
+            novaScore: { type: Type.INTEGER },
+            ecoScore: { type: Type.STRING },
+            calories: { type: Type.INTEGER },
+            burnTimeWalking: { type: Type.STRING },
+            burnTimeRunning: { type: Type.STRING },
+            glycemicLoad: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH"] },
+            recipes: {
+              type: Type.ARRAY,
+              items: {
+                 type: Type.OBJECT,
+                 properties: {
+                    name: { type: Type.STRING },
+                    time: { type: Type.STRING },
+                    difficulty: { type: Type.STRING }
+                 }
+              }
+            },
             ingredients: {
               type: Type.ARRAY,
               items: {
@@ -131,7 +162,7 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
 };
 
 /**
- * Generates a personalized daily plan.
+ * Generates a personalized daily plan with Shopping List.
  */
 export const generateDailyPlan = async (userProfile: UserProfile): Promise<{ mealPlan: MealPlan, workoutPlan: WorkoutPlan }> => {
   const model = "gemini-2.5-flash";
@@ -141,9 +172,10 @@ export const generateDailyPlan = async (userProfile: UserProfile): Promise<{ mea
     ${JSON.stringify(userProfile)}
     
     Focus on:
-    1. Anti-acidity and weight management foods.
-    2. Eye care and posture for desk workers (12h+ sitting).
-    3. Hair and skin health.
+    1. Anti-acidity and weight management.
+    2. Eye care and posture for desk workers.
+    
+    Include a Shopping List based on the meals.
     
     Return JSON.
   `;
@@ -163,7 +195,8 @@ export const generateDailyPlan = async (userProfile: UserProfile): Promise<{ mea
               lunch: { type: Type.STRING },
               dinner: { type: Type.STRING },
               snacks: { type: Type.STRING },
-              nutritionalHighlights: { type: Type.ARRAY, items: { type: Type.STRING } }
+              nutritionalHighlights: { type: Type.ARRAY, items: { type: Type.STRING } },
+              shoppingList: { type: Type.ARRAY, items: { type: Type.STRING } }
             }
           },
           workoutPlan: {

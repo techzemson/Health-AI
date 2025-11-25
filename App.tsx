@@ -4,9 +4,9 @@ import {
   LayoutDashboard, Utensils, ScanLine, Activity, MessageSquare, 
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
-  Award, Zap, Calendar, Droplets, BookOpen, UserPlus, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2
+  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Components
 import Scanner from './components/Scanner';
@@ -105,20 +105,35 @@ const App: React.FC = () => {
   
   // New State Features
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
+  const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null);
   const [progressPhotos, setProgressPhotos] = useState<ProgressPhoto[]>([]);
   const [water, setWater] = useState(4);
   const [mood, setMood] = useState(3);
+  const [shoppingList, setShoppingList] = useState<string[]>([]);
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [workoutTimer, setWorkoutTimer] = useState(0);
 
   // Initialize Data
   useEffect(() => {
     if (!dailyPlan.meal) handleGeneratePlan();
   }, []);
 
+  useEffect(() => {
+    let interval: any;
+    if (showWorkoutModal && workoutTimer > 0) {
+      interval = setInterval(() => setWorkoutTimer(t => t - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [showWorkoutModal, workoutTimer]);
+
   const handleGeneratePlan = async () => {
     setLoadingPlan(true);
     try {
       const plan = await generateDailyPlan(profile);
       setDailyPlan({ meal: plan.mealPlan, workout: plan.workoutPlan });
+      if (plan.mealPlan.shoppingList) {
+          setShoppingList(plan.mealPlan.shoppingList);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -171,6 +186,20 @@ const App: React.FC = () => {
     }
   };
 
+  const startWorkout = () => {
+      setShowWorkoutModal(true);
+      setWorkoutTimer(300); // 5 mins default
+  };
+
+  const handleViewScan = (scan: ScanResult) => {
+      setSelectedScan(scan);
+      setShowScanner(true);
+  };
+
+  const toggleShoppingItem = (idx: number) => {
+      // Logic to toggle done state could go here, for now just basic list
+  };
+
   // Render Logic
   return (
     <div className="min-h-screen bg-slate-50 flex text-gray-900 font-sans">
@@ -185,30 +214,14 @@ const App: React.FC = () => {
           </span>
         </div>
 
-        <div className="px-6 mb-6">
-            <div className="bg-gray-900 rounded-2xl p-4 text-white relative overflow-hidden group cursor-pointer hover:scale-105 transition duration-300">
-                <div className="relative z-10">
-                    <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Current Level</p>
-                    <div className="flex justify-between items-end mb-2">
-                        <span className="text-2xl font-bold">Lvl {profile.level}</span>
-                        <span className="text-xs font-bold text-brand-400">{profile.xp} / 2000 XP</span>
-                    </div>
-                    <div className="w-full bg-gray-700 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-brand-500 h-full w-[60%]"></div>
-                    </div>
-                </div>
-                <div className="absolute right-0 top-0 w-20 h-20 bg-brand-500 rounded-full blur-2xl opacity-20 -translate-y-1/2 translate-x-1/2 group-hover:opacity-40 transition"></div>
-            </div>
-        </div>
-
-        <nav className="flex-1 px-4 space-y-1.5">
+        <nav className="flex-1 px-4 space-y-1.5 mt-4">
           {[
             { id: AppView.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-            { id: AppView.PLANNER, icon: Utensils, label: 'Meals & Fitness' },
-            { id: AppView.TRACKER, icon: Activity, label: 'Wellness Tracker' },
-            { id: AppView.HISTORY, icon: History, label: 'Scan History' },
+            { id: AppView.PLANNER, icon: Utensils, label: 'Day Planner' },
+            { id: AppView.TRACKER, icon: Activity, label: 'Wellness Tools' },
+            { id: AppView.HISTORY, icon: History, label: 'History' },
             { id: AppView.PROGRESS_PHOTOS, icon: Camera, label: 'Body Progress' },
-            { id: AppView.COMMUNITY, icon: UserIcon, label: 'Community' },
+            { id: AppView.PROFILE, icon: UserIcon, label: 'My Profile' },
           ].map((item) => (
             <button
               key={item.id}
@@ -226,11 +239,11 @@ const App: React.FC = () => {
           
           <div className="pt-6 mt-6 border-t border-gray-100 px-2">
             <button 
-              onClick={() => setShowScanner(true)}
+              onClick={() => { setSelectedScan(null); setShowScanner(true); }}
               className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-teal text-white shadow-lg shadow-brand-200 hover:shadow-xl transition font-bold"
             >
               <ScanLine size={18} />
-              <span>Smart Scan</span>
+              <span>Universal Scan</span>
             </button>
           </div>
         </nav>
@@ -245,7 +258,6 @@ const App: React.FC = () => {
             <span className="font-bold text-lg text-brand-800">Health AI</span>
           </div>
           <div className="flex items-center gap-3">
-             <div className="bg-white px-3 py-1 rounded-full text-xs font-bold shadow-sm border text-brand-700">Lvl {profile.level}</div>
              <button className="p-2 bg-white rounded-full shadow-sm"><Bell size={20} className="text-gray-600"/></button>
           </div>
         </header>
@@ -260,15 +272,15 @@ const App: React.FC = () => {
                 <p className="text-gray-500 mt-2 text-lg">You're on a <span className="font-bold text-brand-600">5-day streak!</span> Keep the momentum going.</p>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                  {[
-                      { icon: Zap, label: 'Quick Workout', color: 'bg-orange-100 text-orange-600' },
-                      { icon: Droplets, label: 'Log Water', color: 'bg-blue-100 text-blue-600' },
-                      { icon: BookOpen, label: 'Read Tip', color: 'bg-purple-100 text-purple-600' }
-                  ].map((action, i) => (
-                      <button key={i} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 ${action.color}`}>
-                          <action.icon size={16} /> {action.label}
-                      </button>
-                  ))}
+                  <button onClick={() => startWorkout()} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-orange-100 text-orange-600">
+                      <Zap size={16} /> Quick Workout
+                  </button>
+                  <button onClick={() => setWater(w => Math.min(w+1, 8))} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-blue-100 text-blue-600">
+                      <Droplets size={16} /> Log Water
+                  </button>
+                  <button onClick={() => alert("Daily Tip: Drink water 30 mins before meals for better digestion!")} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-purple-100 text-purple-600">
+                      <BookOpen size={16} /> Read Tip
+                  </button>
               </div>
             </div>
 
@@ -329,16 +341,16 @@ const App: React.FC = () => {
                  <div className="bg-gradient-to-r from-brand-700 to-brand-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl shadow-brand-100">
                     <div className="relative z-10 max-w-lg">
                         <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold mb-4 border border-white/20">
-                             <Award size={14} className="text-yellow-300"/> Daily Challenge Active
+                             <Award size={14} className="text-yellow-300"/> Active Timer
                         </div>
-                        <h3 className="text-2xl font-bold mb-2">Desk Warrior Mission: Spine Reset</h3>
-                        <p className="opacity-80 mb-6 leading-relaxed">You've been active for 4 hours. Complete a 5-minute stretching routine to unlock the "Posture Pro" badge and reduce eye strain.</p>
+                        <h3 className="text-2xl font-bold mb-2">Desk Warrior Mission</h3>
+                        <p className="opacity-80 mb-6 leading-relaxed">You've been sedentary for 4 hours. Start the active timer to improve spine health.</p>
                         <div className="flex gap-3">
                             <button 
-                                onClick={() => setView(AppView.PLANNER)}
-                                className="bg-white text-brand-900 px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-lg"
+                                onClick={startWorkout}
+                                className="bg-white text-brand-900 px-6 py-3 rounded-xl text-sm font-bold hover:bg-gray-100 transition shadow-lg flex items-center gap-2"
                             >
-                                Start 5-min Routine
+                                <Play size={16} fill="currentColor"/> Start Routine
                             </button>
                             <button className="px-6 py-3 rounded-xl text-sm font-bold border border-white/30 hover:bg-white/10 transition">
                                 Skip
@@ -417,7 +429,7 @@ const App: React.FC = () => {
                               <p className="text-xs text-purple-700 leading-relaxed font-medium">
                                   UV Index is very high (9/10).
                               </p>
-                              <button className="mt-3 w-full bg-white text-purple-700 text-xs font-bold py-2 rounded-lg border border-purple-200 hover:bg-purple-100 transition">
+                              <button onClick={() => { setSelectedScan(null); setShowScanner(true); }} className="mt-3 w-full bg-white text-purple-700 text-xs font-bold py-2 rounded-lg border border-purple-200 hover:bg-purple-100 transition">
                                   Scan Sunscreen
                               </button>
                           </div>
@@ -428,10 +440,10 @@ const App: React.FC = () => {
                       <h4 className="font-bold text-lg mb-2">Scan & Win</h4>
                       <p className="text-sm opacity-90 mb-4">Scan your lunch to earn 50 XP and get nutrition insights.</p>
                       <button 
-                        onClick={() => setShowScanner(true)}
+                        onClick={() => { setSelectedScan(null); setShowScanner(true); }}
                         className="w-full bg-white text-brand-600 font-bold py-3 rounded-xl shadow-lg hover:scale-105 transition flex items-center justify-center gap-2"
                       >
-                          <Camera size={18} /> Scan Now
+                          <Camera size={18} /> Universal Scan
                       </button>
                   </div>
               </div>
@@ -448,9 +460,6 @@ const App: React.FC = () => {
                         <h2 className="text-2xl font-bold text-gray-900">Scan History</h2>
                         <p className="text-gray-500">Your past analyses and product insights.</p>
                     </div>
-                    <div className="flex gap-2">
-                        <button className="p-2 bg-white border rounded-lg hover:bg-gray-50"><Calendar size={20} className="text-gray-600"/></button>
-                    </div>
                 </div>
 
                 {scanHistory.length === 0 ? (
@@ -458,7 +467,7 @@ const App: React.FC = () => {
                         <History size={48} className="mx-auto text-gray-300 mb-4" />
                         <h3 className="text-lg font-bold text-gray-700">No History Yet</h3>
                         <p className="text-gray-500 mb-6">Scan your first product to start building your health log.</p>
-                        <button onClick={() => setShowScanner(true)} className="bg-brand-600 text-white px-6 py-2 rounded-lg font-bold">Start Scanning</button>
+                        <button onClick={() => { setSelectedScan(null); setShowScanner(true); }} className="bg-brand-600 text-white px-6 py-2 rounded-lg font-bold">Start Scanning</button>
                     </div>
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -485,7 +494,7 @@ const App: React.FC = () => {
                                             <Award size={16} />
                                             <span className="text-xs font-bold text-gray-700">{scan.score}/100</span>
                                         </div>
-                                        <button className="text-brand-600 text-sm font-bold hover:underline">View Details</button>
+                                        <button onClick={() => handleViewScan(scan)} className="text-brand-600 text-sm font-bold hover:underline">View Details</button>
                                     </div>
                                 </div>
                             </div>
@@ -545,9 +554,12 @@ const App: React.FC = () => {
         {view === AppView.PLANNER && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold">Your Personalized Plan</h2>
+                    <div>
+                        <h2 className="text-2xl font-bold">Your Day Planner</h2>
+                        <p className="text-gray-500 text-sm">Meals, Shopping & Workouts</p>
+                    </div>
                     <button onClick={handleGeneratePlan} disabled={loadingPlan} className="text-sm text-brand-600 font-bold hover:bg-brand-50 px-3 py-1.5 rounded-lg transition">
-                        {loadingPlan ? 'Crafting Plan...' : 'Regenerate'}
+                        {loadingPlan ? 'Crafting Plan...' : 'Regenerate Plan'}
                     </button>
                 </div>
 
@@ -555,7 +567,7 @@ const App: React.FC = () => {
                     <div className="p-20 text-center bg-white rounded-3xl border border-gray-100 shadow-sm">
                         <div className="animate-spin w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                         <h3 className="text-lg font-bold text-gray-800">AI is planning your day...</h3>
-                        <p className="text-gray-500 text-sm">Analyzing acidity levels, eye strain risks, and nutritional needs.</p>
+                        <p className="text-gray-500 text-sm">Generating recipes, shopping list and exercises.</p>
                     </div>
                 )}
 
@@ -565,8 +577,20 @@ const App: React.FC = () => {
                         <div className="space-y-6">
                             <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
                                 <div className="p-2 bg-green-100 text-green-600 rounded-lg"><Utensils size={20}/></div>
-                                Nutrition for Digestion
+                                Today's Menu
                             </h3>
+                            
+                            {/* Calorie Progress */}
+                            <div className="bg-white p-4 rounded-xl border border-gray-100">
+                                <div className="flex justify-between text-sm font-bold mb-1">
+                                    <span>Calories</span>
+                                    <span className="text-brand-600">850 / 2200 kcal</span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                    <div className="bg-brand-500 w-[40%] h-full"></div>
+                                </div>
+                            </div>
+
                             <div className="space-y-4">
                                 {[
                                     { label: 'Breakfast', food: dailyPlan.meal.breakfast, time: '8:00 AM', cal: '350 cal' },
@@ -582,11 +606,27 @@ const App: React.FC = () => {
                                             <div>
                                                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">{meal.label}</span>
                                                 <p className="font-bold text-gray-800 text-lg">{meal.food}</p>
-                                                <p className="text-xs text-brand-600 mt-1 font-medium">{meal.time}</p>
+                                                <p className="text-xs text-brand-600 mt-1 font-medium">{meal.time} • {meal.cal}</p>
                                             </div>
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                            
+                            {/* Shopping List */}
+                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <h4 className="font-bold flex items-center gap-2 mb-4"><ShoppingCart size={18} /> Smart Shopping List</h4>
+                                <div className="space-y-2">
+                                    {shoppingList.map((item, i) => (
+                                        <div key={i} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onClick={() => toggleShoppingItem(i)}>
+                                            <div className="w-5 h-5 rounded border border-gray-300 flex items-center justify-center text-white bg-white hover:border-brand-500">
+                                                {/* Logic to show check would go here */}
+                                            </div>
+                                            <span className="text-sm text-gray-700">{item}</span>
+                                        </div>
+                                    ))}
+                                    {shoppingList.length === 0 && <p className="text-gray-400 text-sm">Generating items...</p>}
+                                </div>
                             </div>
                         </div>
 
@@ -598,12 +638,12 @@ const App: React.FC = () => {
                             </h3>
                             
                             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                                <div className="bg-orange-50 p-6 border-b border-orange-100">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-orange-800 font-bold">{dailyPlan.workout?.type}</span>
-                                        <span className="px-3 py-1 bg-white text-orange-600 rounded-full text-xs font-bold shadow-sm">{dailyPlan.workout?.duration} min</span>
+                                <div className="bg-orange-50 p-6 border-b border-orange-100 flex justify-between items-center">
+                                    <div>
+                                        <div className="text-orange-800 font-bold">{dailyPlan.workout?.type}</div>
+                                        <p className="text-orange-700/80 text-sm mt-1">Reduced eye strain & improved posture.</p>
                                     </div>
-                                    <p className="text-orange-700/80 text-sm">Designed to reduce eye strain and improve posture during work hours.</p>
+                                    <button onClick={startWorkout} className="bg-white text-orange-600 p-3 rounded-full shadow-sm hover:scale-105 transition"><Play size={20} fill="currentColor"/></button>
                                 </div>
                                 <div className="divide-y divide-gray-100">
                                     {dailyPlan.workout?.exercises.map((ex, i) => (
@@ -638,12 +678,55 @@ const App: React.FC = () => {
             </div>
         )}
 
-         {/* --- VIEW: TRACKER --- */}
+         {/* --- VIEW: TRACKER (WELLNESS TOOLS) --- */}
          {view === AppView.TRACKER && (
              <div className="space-y-8 animate-in fade-in">
+                 <h2 className="text-2xl font-bold mb-4">Wellness Tools</h2>
                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* BMI Calculator */}
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                        <h3 className="font-bold text-gray-800 mb-6">Symptom Logger</h3>
+                        <div className="flex items-center gap-2 mb-6 text-brand-600">
+                             <Scale size={20} /> <h3 className="font-bold text-gray-800">BMI Calculator</h3>
+                        </div>
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="text-center">
+                                <p className="text-xs text-gray-400 font-bold uppercase">Weight</p>
+                                <p className="text-2xl font-bold">{profile.weight} kg</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-xs text-gray-400 font-bold uppercase">Height</p>
+                                <p className="text-2xl font-bold">{profile.height} cm</p>
+                            </div>
+                            <div className="text-center p-3 bg-brand-50 rounded-xl">
+                                <p className="text-xs text-brand-500 font-bold uppercase">BMI Score</p>
+                                <p className="text-2xl font-black text-brand-600">{(profile.weight / ((profile.height/100)**2)).toFixed(1)}</p>
+                            </div>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden mb-2">
+                             <div className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-500" style={{width: '70%'}}></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-400 font-medium">
+                            <span>Underweight</span>
+                            <span>Normal</span>
+                            <span>Obese</span>
+                        </div>
+                    </div>
+
+                    {/* Breathing Tool */}
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center relative overflow-hidden">
+                        <h3 className="font-bold text-gray-800 mb-2 relative z-10 flex items-center gap-2"><Wind size={18}/> Stress Relief Breathing</h3>
+                        <p className="text-gray-500 text-sm mb-8 relative z-10">Follow the circle to relax.</p>
+                        
+                        <div className="w-32 h-32 bg-blue-100 rounded-full flex items-center justify-center animate-[pulse_4s_ease-in-out_infinite] relative z-10">
+                             <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center animate-[pulse_4s_ease-in-out_infinite_reverse]">
+                                 <span className="text-xs font-bold text-blue-600">Breathe</span>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* Symptom Logger */}
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><Activity size={18}/> Symptom Logger</h3>
                         <div className="flex flex-wrap gap-2 mb-6">
                             {['Headache', 'Eye Strain', 'Acidity', 'Back Pain', 'Bloating'].map(sym => (
                                 <button key={sym} className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition text-sm font-medium">
@@ -651,51 +734,28 @@ const App: React.FC = () => {
                                 </button>
                             ))}
                         </div>
-                        <textarea className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-brand-200 resize-none h-32 text-sm" placeholder="Describe how you feel today..."></textarea>
+                        <textarea className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-brand-200 resize-none h-24 text-sm" placeholder="Describe how you feel today..."></textarea>
                         <button className="mt-4 w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition">Log Entry</button>
                     </div>
 
-                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-                        <h3 className="font-bold text-gray-800 mb-2">Mood Check-in</h3>
-                        <p className="text-gray-500 text-sm mb-8">How does your body feel right now?</p>
-                        <div className="flex gap-4">
-                            {[1,2,3,4,5].map((level) => (
-                                <button key={level} onClick={() => setMood(level)} 
-                                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition hover:scale-110 ${mood === level ? 'bg-brand-100 ring-2 ring-brand-500 scale-110' : 'bg-gray-50'}`}>
-                                    {['😫','😕','😐','🙂','😁'][level-1]}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                 </div>
-             </div>
-         )}
-         
-         {/* --- VIEW: COMMUNITY --- */}
-         {view === AppView.COMMUNITY && (
-             <div className="max-w-4xl mx-auto py-10">
-                 <div className="text-center mb-10">
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Desk Warriors Community</h2>
-                    <p className="text-gray-500">Connect with 12,000+ others improving their posture and health.</p>
-                 </div>
-                 
-                 <div className="space-y-4">
-                     {[1,2,3].map(i => (
-                         <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                             <div className="flex items-center gap-3 mb-4">
-                                 <div className="w-10 h-10 rounded-full bg-gray-200"></div>
-                                 <div>
-                                     <h4 className="font-bold text-gray-900">Sarah M. <span className="text-gray-400 font-normal text-xs">• 2h ago</span></h4>
-                                     <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold">Question</span>
-                                 </div>
+                    {/* Sleep Calc */}
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                         <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><BedDouble size={18}/> Sleep Cycle Calculator</h3>
+                         <div className="flex gap-4 mb-4">
+                             <div className="flex-1">
+                                 <label className="text-xs font-bold text-gray-400">Bedtime</label>
+                                 <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="23:00" />
                              </div>
-                             <p className="text-gray-700 mb-4">Does anyone else get severe eye strain after lunch? I've been trying the 20-20-20 rule but looking for other tips!</p>
-                             <div className="flex gap-4 text-sm text-gray-500 font-medium">
-                                 <button className="flex items-center gap-1 hover:text-brand-600"><Heart size={16}/> 24 Likes</button>
-                                 <button className="flex items-center gap-1 hover:text-brand-600"><MessageSquare size={16}/> 8 Replies</button>
+                             <div className="flex-1">
+                                 <label className="text-xs font-bold text-gray-400">Wake Up</label>
+                                 <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="07:00" />
                              </div>
                          </div>
-                     ))}
+                         <div className="p-4 bg-purple-50 rounded-xl text-center">
+                             <p className="text-purple-900 font-bold text-lg">5 Cycles Recommended</p>
+                             <p className="text-purple-600 text-xs">Wake up at 6:30 AM or 8:00 AM for best energy.</p>
+                         </div>
+                    </div>
                  </div>
              </div>
          )}
@@ -714,7 +774,7 @@ const App: React.FC = () => {
           </button>
           <div className="relative -top-6">
               <button 
-                onClick={() => setShowScanner(true)}
+                onClick={() => { setSelectedScan(null); setShowScanner(true); }}
                 className="w-14 h-14 bg-gradient-to-tr from-brand-600 to-brand-400 rounded-full shadow-lg shadow-brand-200 flex items-center justify-center text-white transform active:scale-95 transition border-4 border-slate-50"
               >
                   <ScanLine size={24} />
@@ -724,15 +784,47 @@ const App: React.FC = () => {
               <History size={22} />
               <span className="text-[10px] font-bold mt-1">History</span>
           </button>
-          <button onClick={() => setView(AppView.PROGRESS_PHOTOS)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.PROGRESS_PHOTOS ? 'text-brand-600' : 'text-gray-400'}`}>
-              <Camera size={22} />
-              <span className="text-[10px] font-bold mt-1">Body</span>
+          <button onClick={() => setView(AppView.TRACKER)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.TRACKER ? 'text-brand-600' : 'text-gray-400'}`}>
+              <Activity size={22} />
+              <span className="text-[10px] font-bold mt-1">Tools</span>
           </button>
       </nav>
 
       {/* Overlays */}
       {showScanner && (
-        <Scanner userProfile={profile} onClose={() => setShowScanner(false)} onSave={handleSaveScan} />
+        <Scanner 
+            userProfile={profile} 
+            onClose={() => setShowScanner(false)} 
+            onSave={handleSaveScan} 
+            initialData={selectedScan}
+        />
+      )}
+
+      {/* Workout Modal */}
+      {showWorkoutModal && (
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden relative">
+                  <div className="p-6 text-center">
+                      <h3 className="text-2xl font-bold mb-1">Desk Warrior Session</h3>
+                      <p className="text-gray-500 mb-8">Follow the exercises</p>
+                      
+                      <div className="w-48 h-48 rounded-full border-8 border-brand-100 border-t-brand-600 mx-auto flex items-center justify-center mb-8 relative">
+                          <span className="text-4xl font-black text-brand-600">
+                              {Math.floor(workoutTimer / 60)}:{(workoutTimer % 60).toString().padStart(2, '0')}
+                          </span>
+                      </div>
+                      
+                      <div className="bg-gray-50 p-4 rounded-xl mb-6">
+                          <p className="font-bold text-lg">Next: Neck Stretches</p>
+                          <p className="text-gray-500 text-sm">Tilt head left and right slowly.</p>
+                      </div>
+
+                      <button onClick={() => setShowWorkoutModal(false)} className="w-full py-4 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition">
+                          End Session
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
 
       <VoiceAgent onSpeechResult={handleVoiceInput} />
