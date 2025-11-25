@@ -65,13 +65,13 @@ export interface RecipeSuggestion {
 export interface ScanResult {
   id: string;
   timestamp: number;
-  type: 'FOOD' | 'PRODUCT' | 'SKIN' | 'OTHER';
+  type: 'FOOD' | 'PRODUCT' | 'SKIN' | 'WORKSPACE' | 'OTHER';
   imagePreview: string; // Base64
   productName?: string;
   analysis: string; // General summary
   isHarmful: boolean;
   score: number; // 0-100
-  recommendation: 'BUY' | 'AVOID' | 'CONSULT_DOCTOR';
+  recommendation: 'BUY' | 'AVOID' | 'CONSULT_DOCTOR' | 'FIX_SETUP';
   
   // Advanced Details
   ingredients: Ingredient[];
@@ -96,6 +96,11 @@ export interface ScanResult {
     url: string;
     price?: string;
   }[];
+}
+
+export interface ShoppingItem {
+  name: string;
+  checked: boolean;
 }
 
 export interface MealPlan {

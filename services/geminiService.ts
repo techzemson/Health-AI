@@ -11,13 +11,14 @@ Your goal is to help users aged 20-70 improve their lives through better nutriti
 You specialize in:
 1. Identifying health risks from food ingredients and products.
 2. Providing desk-friendly workout routines for sedentary workers.
-3. Suggesting natural remedies for acidity, hair loss, and eye strain.
-4. Analyzing skin conditions and suggesting products.
-5. Always being encouraging but realistic.
+3. Analyzing workstation ergonomics ("Roast my Desk").
+4. Suggesting natural remedies for acidity, hair loss, and eye strain.
+5. Analyzing skin conditions and suggesting products.
+6. Always being encouraging but realistic.
 `;
 
 /**
- * Analyzes an image (Food, Product, Skin) and provides a detailed report.
+ * Analyzes an image (Food, Product, Skin, Workspace) and provides a detailed report.
  */
 export const analyzeImage = async (base64Image: string, userProfile: UserProfile): Promise<Partial<ScanResult>> => {
   const model = "gemini-2.5-flash"; 
@@ -26,7 +27,7 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
     Analyze this image deeply for a user with these attributes:
     Age: ${userProfile.age}, Gender: ${userProfile.gender}, Issues: ${userProfile.healthIssues.join(', ')}.
     
-    Identify what is in the image (Food, Supplement, Skincare Product, or Body Part/Skin Issue).
+    Identify what is in the image (Food, Supplement, Skincare Product, Body Part, or Workspace/Desk).
 
     Return a DETAILED JSON response.
     
@@ -35,7 +36,7 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
     - Determine NOVA Score (1=Unprocessed to 4=Ultra-processed).
     - Estimate Eco Score (A=Low Impact to E=High Impact).
     - Estimate Calories.
-    - Calculate "Burn Time" (Walking vs Running).
+    - Calculate "Burn It Off" time (Walking vs Running).
     - Suggest 2 simple recipes using this.
     
     If it is a PRODUCT:
@@ -46,19 +47,24 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
     If it is SKIN/BODY:
     - Analyze condition.
     - Suggest routine.
+    
+    If it is WORKSPACE/DESK:
+    - Analyze ergonomics (Monitor height, Chair support, Lighting).
+    - Suggest fixes for "Desk Warrior" health (Spine, Eyes).
+    - "recommendation" should be "FIX_SETUP" or "BUY" (if good).
 
     JSON Schema requirements:
-    - type: "FOOD" | "PRODUCT" | "SKIN" | "OTHER"
-    - productName: Name of item or condition.
+    - type: "FOOD" | "PRODUCT" | "SKIN" | "WORKSPACE" | "OTHER"
+    - productName: Name of item, condition, or "My Desk Setup".
     - isHarmful: boolean.
-    - score: 0-100 (Health score).
-    - recommendation: "BUY" | "AVOID" | "CONSULT_DOCTOR".
-    - analysis: A 2-3 sentence summary.
+    - score: 0-100 (Health/Ergonomic score).
+    - recommendation: "BUY" | "AVOID" | "CONSULT_DOCTOR" | "FIX_SETUP".
+    - analysis: A detailed summary with bullet points if complex.
     - pros: Array of 3-5 good points.
-    - cons: Array of 3-5 bad points/risks.
+    - cons: Array of 3-5 bad points/risks/issues.
     - healthBenefits: Array of specific benefits for the user's condition.
-    - usageInstructions: How/When to consume or use.
-    - storageTips: How to store it (e.g. "Keep refrigerated").
+    - usageInstructions: How/When to consume, use, or adjust setup.
+    - storageTips: How to store it (or "Ergonomic Tip" for workspace).
     - novaScore: 1-4 (integer, optional for non-food).
     - ecoScore: "A"|"B"|"C"|"D"|"E" (string, optional).
     - calories: number (estimate).
@@ -68,7 +74,7 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
     - recipes: Array of { name, time, difficulty }.
     - ingredients: Array of objects { name, riskLevel: "SAFE"|"MODERATE"|"HARMFUL", description }.
     - macros: Array of objects { name: "Protein"|"Carbs"|"Fat"|"Other", value: number (percentage 0-100), fill: string (hex color) }.
-    - affiliateLinks: Array of 2 suggested products.
+    - affiliateLinks: Array of 2 suggested products (e.g. Ergonomic chair, Organic food).
   `;
 
   try {
@@ -85,11 +91,11 @@ export const analyzeImage = async (base64Image: string, userProfile: UserProfile
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            type: { type: Type.STRING, enum: ["FOOD", "PRODUCT", "SKIN", "OTHER"] },
+            type: { type: Type.STRING, enum: ["FOOD", "PRODUCT", "SKIN", "WORKSPACE", "OTHER"] },
             productName: { type: Type.STRING },
             isHarmful: { type: Type.BOOLEAN },
             score: { type: Type.INTEGER },
-            recommendation: { type: Type.STRING, enum: ["BUY", "AVOID", "CONSULT_DOCTOR"] },
+            recommendation: { type: Type.STRING, enum: ["BUY", "AVOID", "CONSULT_DOCTOR", "FIX_SETUP"] },
             analysis: { type: Type.STRING },
             pros: { type: Type.ARRAY, items: { type: Type.STRING } },
             cons: { type: Type.ARRAY, items: { type: Type.STRING } },

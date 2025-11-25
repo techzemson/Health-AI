@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, AlertTriangle, CheckCircle, ShoppingBag, X, Loader2, Info, List, PieChart as PieChartIcon, Activity, Heart, ShieldAlert, Zap, Leaf, Thermometer, Flame, Clock, ChefHat, BookOpen } from 'lucide-react';
+import { Camera, AlertTriangle, CheckCircle, ShoppingBag, X, Loader2, Info, List, PieChart as PieChartIcon, Activity, Heart, ShieldAlert, Zap, Leaf, Thermometer, Flame, Clock, ChefHat, BookOpen, Monitor } from 'lucide-react';
 import { analyzeImage } from '../services/geminiService';
 import { UserProfile, ScanResult } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
@@ -85,6 +85,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
       case 'BUY': return 'text-green-600 bg-green-50 border-green-200';
       case 'AVOID': return 'text-red-600 bg-red-50 border-red-200';
       case 'CONSULT_DOCTOR': return 'text-orange-600 bg-orange-50 border-orange-200';
+      case 'FIX_SETUP': return 'text-blue-600 bg-blue-50 border-blue-200';
       default: return 'text-gray-600 bg-gray-50';
     }
   };
@@ -148,7 +149,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                     <Camera size={40} />
                  </div>
                  <p className="text-brand-900 font-bold text-lg">Tap to Scan</p>
-                 <p className="text-brand-600 text-sm mt-1">Food, Labels, Skin, or Products</p>
+                 <p className="text-brand-600 text-sm mt-1">Food, Labels, Skin, or <span className="font-bold">Desk Setup</span></p>
               </div>
               
               <div className="mt-8 grid grid-cols-2 gap-4 w-full max-w-lg">
@@ -158,9 +159,9 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                      <p className="text-xs text-gray-500">Detects harmful additives & allergens</p>
                  </div>
                  <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
-                     <PieChartIcon size={20} className="text-purple-500 mb-2"/>
-                     <h4 className="font-bold text-gray-800 text-sm">Macro Analysis</h4>
-                     <p className="text-xs text-gray-500">Protein, Carbs & Fat breakdown</p>
+                     <Monitor size={20} className="text-purple-500 mb-2"/>
+                     <h4 className="font-bold text-gray-800 text-sm">Desk Roast</h4>
+                     <p className="text-xs text-gray-500">Ergonomic analysis of your workspace</p>
                  </div>
                  <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100">
                      <Flame size={20} className="text-orange-500 mb-2"/>
@@ -205,7 +206,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                             <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
                                 <div className="bg-gradient-to-r from-brand-400 to-brand-600 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                             </div>
-                            <p className="text-gray-400 text-xs mt-4 text-center">Checking 150+ additives, macros, and eco-impact.</p>
+                            <p className="text-gray-400 text-xs mt-4 text-center">Checking 150+ additives, macros, and ergonomics.</p>
                         </div>
                     )}
                     
@@ -228,7 +229,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                         <div className="flex items-center gap-4">
                              {result.recommendation === 'BUY' && <CheckCircle className="w-10 h-10"/>}
                              {result.recommendation === 'AVOID' && <ShieldAlert className="w-10 h-10"/>}
-                             {result.recommendation === 'CONSULT_DOCTOR' && <Activity className="w-10 h-10"/>}
+                             {(result.recommendation === 'CONSULT_DOCTOR' || result.recommendation === 'FIX_SETUP') && <Activity className="w-10 h-10"/>}
                              <div>
                                  <h4 className="font-black text-2xl tracking-tight">{result.recommendation?.replace('_', ' ')}</h4>
                                  <p className="text-xs opacity-80 font-medium">AI Health Verdict</p>
@@ -265,7 +266,12 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                                 <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                                     <h5 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">AI Analysis</h5>
-                                    <p className="text-gray-700 leading-relaxed text-lg">{result.analysis}</p>
+                                    {/* Render analysis with bullet points if possible */}
+                                    <div className="text-gray-700 leading-relaxed text-lg">
+                                        {result.analysis?.split('\n').map((line, i) => (
+                                            <p key={i} className="mb-2">{line}</p>
+                                        ))}
+                                    </div>
                                 </div>
                                 
                                 {/* Advanced Metrics Grid */}
@@ -325,7 +331,9 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
                                         <Thermometer className="text-blue-500 shrink-0 mt-1" size={20} />
                                         <div>
-                                            <h5 className="text-blue-800 font-bold text-sm">Storage Tip</h5>
+                                            <h5 className="text-blue-800 font-bold text-sm">
+                                                {result.type === 'WORKSPACE' ? 'Ergonomic Tip' : 'Storage Tip'}
+                                            </h5>
                                             <p className="text-sm text-blue-700">{result.storageTips}</p>
                                         </div>
                                     </div>
@@ -351,7 +359,9 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                         </div>
                                     ))}
                                     {(!result.ingredients || result.ingredients.length === 0) && (
-                                        <div className="p-8 text-center text-gray-400">No ingredients detected.</div>
+                                        <div className="p-8 text-center text-gray-400">
+                                            {result.type === 'WORKSPACE' ? 'No ingredients in a desk setup!' : 'No ingredients detected.'}
+                                        </div>
                                     )}
                                 </div>
                             </div>

@@ -4,13 +4,13 @@ import {
   LayoutDashboard, Utensils, ScanLine, Activity, MessageSquare, 
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
-  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator
+  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Components
 import Scanner from './components/Scanner';
-import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto } from './types';
+import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto, ShoppingItem } from './types';
 import { generateDailyPlan, chatWithAgent } from './services/geminiService';
 
 // --- MOCK DATA FOR ONBOARDING ---
@@ -108,16 +108,24 @@ const App: React.FC = () => {
   const [selectedScan, setSelectedScan] = useState<ScanResult | null>(null);
   const [progressPhotos, setProgressPhotos] = useState<ProgressPhoto[]>([]);
   const [water, setWater] = useState(4);
-  const [mood, setMood] = useState(3);
-  const [shoppingList, setShoppingList] = useState<string[]>([]);
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [workoutTimer, setWorkoutTimer] = useState(0);
+
+  // Interaction States
+  const [symptomText, setSymptomText] = useState("");
+  const [showLogSuccess, setShowLogSuccess] = useState(false);
+  const [eyeTimerActive, setEyeTimerActive] = useState(false);
+  const [eyeTimerCount, setEyeTimerCount] = useState(20 * 60); // 20 minutes in seconds
+  const [fastingStartTime, setFastingStartTime] = useState<Date | null>(null);
+  const [stoolType, setStoolType] = useState<number | null>(null);
 
   // Initialize Data
   useEffect(() => {
     if (!dailyPlan.meal) handleGeneratePlan();
   }, []);
 
+  // Workout Timer Effect
   useEffect(() => {
     let interval: any;
     if (showWorkoutModal && workoutTimer > 0) {
@@ -126,13 +134,26 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [showWorkoutModal, workoutTimer]);
 
+  // Eye Care Timer Effect
+  useEffect(() => {
+      let interval: any;
+      if (eyeTimerActive && eyeTimerCount > 0) {
+          interval = setInterval(() => setEyeTimerCount(c => c - 1), 1000);
+      } else if (eyeTimerCount === 0 && eyeTimerActive) {
+          setEyeTimerActive(false);
+          alert("Time to look away! 20-20-20 Rule complete.");
+          setEyeTimerCount(20 * 60);
+      }
+      return () => clearInterval(interval);
+  }, [eyeTimerActive, eyeTimerCount]);
+
   const handleGeneratePlan = async () => {
     setLoadingPlan(true);
     try {
       const plan = await generateDailyPlan(profile);
       setDailyPlan({ meal: plan.mealPlan, workout: plan.workoutPlan });
       if (plan.mealPlan.shoppingList) {
-          setShoppingList(plan.mealPlan.shoppingList);
+          setShoppingList(plan.mealPlan.shoppingList.map(item => ({ name: item, checked: false })));
       }
     } catch (e) {
       console.error(e);
@@ -143,7 +164,6 @@ const App: React.FC = () => {
 
   const handleSaveScan = (result: ScanResult) => {
     setScanHistory(prev => [result, ...prev]);
-    // Award XP
     setProfile(p => ({ ...p, xp: p.xp + 50 }));
   };
 
@@ -159,7 +179,7 @@ const App: React.FC = () => {
                   note: `Weight: ${profile.weight}kg`
               };
               setProgressPhotos(prev => [newPhoto, ...prev]);
-              setProfile(p => ({ ...p, xp: p.xp + 100 })); // Big XP reward
+              setProfile(p => ({ ...p, xp: p.xp + 100 }));
           };
           reader.readAsDataURL(file);
       }
@@ -197,7 +217,27 @@ const App: React.FC = () => {
   };
 
   const toggleShoppingItem = (idx: number) => {
-      // Logic to toggle done state could go here, for now just basic list
+      setShoppingList(prev => prev.map((item, i) => i === idx ? { ...item, checked: !item.checked } : item));
+  };
+
+  const logSymptom = () => {
+      if (!symptomText.trim()) return;
+      setShowLogSuccess(true);
+      setSymptomText("");
+      setTimeout(() => setShowLogSuccess(false), 2000);
+      setProfile(p => ({ ...p, xp: p.xp + 10 }));
+  };
+
+  const addSymptomTag = (sym: string) => {
+      setSymptomText(prev => prev ? `${prev}, ${sym}` : sym);
+  };
+
+  const incrementWater = () => {
+      setWater(w => {
+          const next = Math.min(w + 1, 8);
+          if (next === 8) alert("Hydration Goal Reached! 🎉");
+          return next;
+      });
   };
 
   // Render Logic
@@ -275,11 +315,11 @@ const App: React.FC = () => {
                   <button onClick={() => startWorkout()} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-orange-100 text-orange-600">
                       <Zap size={16} /> Quick Workout
                   </button>
-                  <button onClick={() => setWater(w => Math.min(w+1, 8))} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-blue-100 text-blue-600">
+                  <button onClick={incrementWater} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-blue-100 text-blue-600">
                       <Droplets size={16} /> Log Water
                   </button>
-                  <button onClick={() => alert("Daily Tip: Drink water 30 mins before meals for better digestion!")} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-purple-100 text-purple-600">
-                      <BookOpen size={16} /> Read Tip
+                  <button onClick={() => { setSelectedScan(null); setShowScanner(true); }} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-purple-100 text-purple-600">
+                      <Monitor size={16} /> Roast My Desk
                   </button>
               </div>
             </div>
@@ -307,7 +347,7 @@ const App: React.FC = () => {
                 <div className="mt-2 w-full bg-gray-100 rounded-full h-2 relative z-10 overflow-hidden">
                     <div className="bg-blue-500 h-full transition-all duration-500" style={{width: `${(water/8)*100}%`}}></div>
                 </div>
-                <button onClick={() => setWater(w => Math.min(w+1, 8))} className="absolute inset-0 z-20 cursor-pointer"></button>
+                <button onClick={incrementWater} className="absolute inset-0 z-20 cursor-pointer"></button>
                 <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-blue-50 rounded-full group-hover:scale-125 transition duration-500"></div>
               </div>
 
@@ -618,11 +658,11 @@ const App: React.FC = () => {
                                 <h4 className="font-bold flex items-center gap-2 mb-4"><ShoppingCart size={18} /> Smart Shopping List</h4>
                                 <div className="space-y-2">
                                     {shoppingList.map((item, i) => (
-                                        <div key={i} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onClick={() => toggleShoppingItem(i)}>
-                                            <div className="w-5 h-5 rounded border border-gray-300 flex items-center justify-center text-white bg-white hover:border-brand-500">
-                                                {/* Logic to show check would go here */}
+                                        <div key={i} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition select-none" onClick={() => toggleShoppingItem(i)}>
+                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${item.checked ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-300'}`}>
+                                                {item.checked && <CheckCircle2 size={14} />}
                                             </div>
-                                            <span className="text-sm text-gray-700">{item}</span>
+                                            <span className={`text-sm ${item.checked ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{item.name}</span>
                                         </div>
                                     ))}
                                     {shoppingList.length === 0 && <p className="text-gray-400 text-sm">Generating items...</p>}
@@ -664,11 +704,20 @@ const App: React.FC = () => {
                             </div>
 
                              {/* Eye Care Tip Widget */}
-                            <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden">
+                            <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden transition-all duration-300">
                                 <div className="relative z-10">
                                     <h4 className="font-bold flex items-center gap-2 mb-2"><MessageSquare size={18} /> Eye Care Rule 20-20-20</h4>
                                     <p className="text-blue-100 text-sm mb-4">Every 20 minutes, look at something 20 feet away for 20 seconds.</p>
-                                    <button className="bg-white text-blue-600 px-4 py-2 rounded-lg text-xs font-bold">Start Timer</button>
+                                    {eyeTimerActive ? (
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-3xl font-black tabular-nums">
+                                                {Math.floor(eyeTimerCount / 60)}:{(eyeTimerCount % 60).toString().padStart(2, '0')}
+                                            </span>
+                                            <button onClick={() => setEyeTimerActive(false)} className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-xs font-bold">Stop</button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setEyeTimerActive(true)} className="bg-white text-blue-600 px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:shadow-lg transition">Start Timer</button>
+                                    )}
                                 </div>
                                 <div className="absolute -right-4 -bottom-10 text-9xl opacity-20 rotate-12">👁️</div>
                             </div>
@@ -712,6 +761,36 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
+                     {/* Fasting Timer (New Feature) */}
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                         <div className="flex items-center gap-2 mb-4 text-orange-600">
+                             <Timer size={20} /> <h3 className="font-bold text-gray-800">Intermittent Fasting (16:8)</h3>
+                         </div>
+                         <div className="flex items-center gap-6">
+                             <div className="relative w-24 h-24 rounded-full border-4 border-orange-100 flex items-center justify-center">
+                                 {fastingStartTime ? (
+                                     <span className="text-lg font-bold text-orange-600">Active</span>
+                                 ) : (
+                                     <span className="text-sm font-bold text-gray-400">Off</span>
+                                 )}
+                             </div>
+                             <div className="flex-1">
+                                 {fastingStartTime ? (
+                                     <div>
+                                         <p className="text-xs text-gray-500 uppercase font-bold">Started at</p>
+                                         <p className="text-xl font-bold text-gray-900">{fastingStartTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                         <button onClick={() => setFastingStartTime(null)} className="mt-2 text-xs text-red-500 font-bold hover:underline">Stop Fast</button>
+                                     </div>
+                                 ) : (
+                                     <div>
+                                         <p className="text-sm text-gray-600 mb-2">Start your fasting window now.</p>
+                                         <button onClick={() => setFastingStartTime(new Date())} className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-orange-600 transition">Start Fast</button>
+                                     </div>
+                                 )}
+                             </div>
+                         </div>
+                    </div>
+
                     {/* Breathing Tool */}
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center relative overflow-hidden">
                         <h3 className="font-bold text-gray-800 mb-2 relative z-10 flex items-center gap-2"><Wind size={18}/> Stress Relief Breathing</h3>
@@ -729,13 +808,46 @@ const App: React.FC = () => {
                         <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><Activity size={18}/> Symptom Logger</h3>
                         <div className="flex flex-wrap gap-2 mb-6">
                             {['Headache', 'Eye Strain', 'Acidity', 'Back Pain', 'Bloating'].map(sym => (
-                                <button key={sym} className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition text-sm font-medium">
+                                <button 
+                                    key={sym} 
+                                    onClick={() => addSymptomTag(sym)}
+                                    className="px-4 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition text-sm font-medium"
+                                >
                                     + {sym}
                                 </button>
                             ))}
                         </div>
-                        <textarea className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-brand-200 resize-none h-24 text-sm" placeholder="Describe how you feel today..."></textarea>
-                        <button className="mt-4 w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition">Log Entry</button>
+                        <textarea 
+                            value={symptomText}
+                            onChange={(e) => setSymptomText(e.target.value)}
+                            className="w-full p-4 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-brand-200 resize-none h-24 text-sm" 
+                            placeholder="Describe how you feel today..."
+                        ></textarea>
+                        <button 
+                            onClick={logSymptom}
+                            className={`mt-4 w-full py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 ${showLogSuccess ? 'bg-green-600 text-white' : 'bg-gray-900 text-white hover:bg-black'}`}
+                        >
+                            {showLogSuccess ? <CheckCircle2 size={18}/> : 'Log Entry'}
+                            {showLogSuccess && ' Logged!'}
+                        </button>
+                    </div>
+
+                    {/* Gut Health Tracker (New Feature) */}
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                         <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">💩 Gut Health Tracker</h3>
+                         <p className="text-xs text-gray-500 mb-4">Track digestion for acidity insights.</p>
+                         <div className="flex justify-between gap-1 mb-4">
+                             {[1,2,3,4,5].map(type => (
+                                 <button 
+                                     key={type}
+                                     onClick={() => setStoolType(type)}
+                                     className={`flex-1 h-12 rounded-lg flex items-center justify-center font-bold text-lg transition ${stoolType === type ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800'}`}
+                                 >
+                                     {type}
+                                 </button>
+                             ))}
+                         </div>
+                         <p className="text-center text-xs text-gray-400 font-medium">Bristol Stool Scale (1: Hard - 5: Liquid)</p>
                     </div>
 
                     {/* Sleep Calc */}
