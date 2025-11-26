@@ -4,13 +4,13 @@ import {
   LayoutDashboard, Utensils, ScanLine, Activity, MessageSquare, 
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
-  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart, Target, Ruler, Dumbbell, Baby, Percent
+  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Components
 import Scanner from './components/Scanner';
-import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto, ShoppingItem, ActivityLevel } from './types';
+import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto, ShoppingItem, ActivityLevel, CalculatorType } from './types';
 import { generateDailyPlan, chatWithAgent } from './services/geminiService';
 
 // --- MOCK DATA FOR ONBOARDING ---
@@ -102,6 +102,7 @@ const App: React.FC = () => {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
   
   // New State Features
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
@@ -120,16 +121,25 @@ const App: React.FC = () => {
   const [fastingStartTime, setFastingStartTime] = useState<Date | null>(null);
   const [stoolType, setStoolType] = useState<number | null>(null);
 
+  // Sleep Sound Audio Context
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const brownNoiseNodeRef = useRef<AudioNode | null>(null);
+  const [isPlayingNoise, setIsPlayingNoise] = useState(false);
+
   // Calculator Suite State
-  const [trackerTab, setTrackerTab] = useState<'TOOLS' | 'FUTURE'>('TOOLS');
+  const [activeCalculator, setActiveCalculator] = useState<CalculatorType>('BMI');
   const [calcActivity, setCalcActivity] = useState<ActivityLevel>(ActivityLevel.SEDENTARY);
-  const [bodyStats, setBodyStats] = useState({ waist: 90, neck: 38, hip: 100 }); // cm
+  const [bodyStats, setBodyStats] = useState({ waist: 90, neck: 38, hip: 100, age: 33, weight: 75, height: 175 }); 
   
   // New Calculator States
   const [orm, setOrm] = useState({ weight: 60, reps: 5 });
   const [lmpDate, setLmpDate] = useState("");
   const [breathTimer, setBreathTimer] = useState(0);
   const [isBreathHolding, setIsBreathHolding] = useState(false);
+  const [calculatedResult, setCalculatedResult] = useState<string | number | null>(null);
+
+  // Missing state for Tracker View tabs
+  const [trackerTab, setTrackerTab] = useState<'TOOLS' | 'FUTURE'>('TOOLS');
 
   // Initialize Data
   useEffect(() => {
@@ -166,6 +176,39 @@ const App: React.FC = () => {
       }
       return () => clearInterval(interval);
   }, [isBreathHolding]);
+
+  // Brown Noise Generator
+  const toggleBrownNoise = () => {
+      if (isPlayingNoise) {
+          brownNoiseNodeRef.current?.disconnect();
+          audioCtxRef.current?.close();
+          audioCtxRef.current = null;
+          setIsPlayingNoise(false);
+          return;
+      }
+
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const bufferSize = 4096;
+      const brownNoise = ctx.createScriptProcessor(bufferSize, 1, 1);
+      
+      brownNoise.onaudioprocess = function(e) {
+          const output = e.outputBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+              const white = Math.random() * 2 - 1;
+              output[i] = (lastOut + (0.02 * white)) / 1.02;
+              lastOut = output[i];
+              output[i] *= 3.5; // (roughly) compensate for gain
+          }
+      };
+      
+      let lastOut = 0;
+      brownNoise.connect(ctx.destination);
+      
+      audioCtxRef.current = ctx;
+      brownNoiseNodeRef.current = brownNoise;
+      setIsPlayingNoise(true);
+  };
 
   const handleGeneratePlan = async () => {
     setLoadingPlan(true);
@@ -205,8 +248,7 @@ const App: React.FC = () => {
       }
   };
 
-  const handleVoiceInput = async (text: string) => {
-    setIsChatOpen(true);
+  const processChatResponse = async (text: string) => {
     const newHistory = [...chatHistory, { role: 'user' as const, text }];
     setChatHistory(newHistory);
     
@@ -219,11 +261,28 @@ const App: React.FC = () => {
       const response = await chatWithAgent(apiHistory, text);
       setChatHistory([...newHistory, { role: 'model', text: response }]);
       
+      // Stop previous audio if any
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(response);
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       setChatHistory([...newHistory, { role: 'model', text: "Sorry, I couldn't process that right now. Please try again." }]);
     }
+  };
+
+  const handleVoiceInput = async (text: string) => {
+    setIsChatOpen(true);
+    processChatResponse(text);
+  };
+
+  const handleSendChat = () => {
+      if (!chatInput.trim()) return;
+      processChatResponse(chatInput);
+      setChatInput("");
+  };
+
+  const stopAudio = () => {
+      window.speechSynthesis.cancel();
   };
 
   const startWorkout = () => {
@@ -266,86 +325,79 @@ const App: React.FC = () => {
 
   // --- CALCULATOR LOGIC ---
 
-  // 1. BMR & TDEE
-  const calculateBMR = () => {
-      // Mifflin-St Jeor
-      if (profile.gender === Gender.MALE) {
-          return (10 * profile.weight) + (6.25 * profile.height) - (5 * profile.age) + 5;
+  const runCalculation = () => {
+      let res: string | number | null = null;
+      const { weight, height, age, waist, hip, neck } = bodyStats;
+      const hM = height / 100;
+
+      switch (activeCalculator) {
+          case 'BMI':
+              res = (weight / (hM * hM)).toFixed(1);
+              break;
+          case 'BMR':
+              // Mifflin-St Jeor
+              const s = profile.gender === Gender.MALE ? 5 : -161;
+              res = Math.round((10 * weight) + (6.25 * height) - (5 * age) + s);
+              break;
+          case 'TDEE':
+              const bmr = (profile.gender === Gender.MALE ? 5 : -161) + (10 * weight) + (6.25 * height) - (5 * age);
+              res = Math.round(bmr * calcActivity);
+              break;
+          case 'BODY_FAT':
+               if (profile.gender === Gender.MALE) {
+                   res = (495 / (1.0324 - 0.19077 * Math.log10(waist - neck) + 0.15456 * Math.log10(height)) - 450).toFixed(1);
+               } else {
+                   res = (495 / (1.29579 - 0.35004 * Math.log10(waist + hip - neck) + 0.22100 * Math.log10(height)) - 450).toFixed(1);
+               }
+               if (parseFloat(res as string) < 0) res = 0;
+               break;
+          case 'PROTEIN':
+               res = Math.round(weight * (calcActivity > 1.5 ? 1.8 : 1.2));
+               break;
+          case 'WATER':
+               res = (weight * 0.033).toFixed(1);
+               break;
+          case 'IBW':
+               // Devine
+               const base = profile.gender === Gender.MALE ? 50 : 45.5;
+               const inches = height / 2.54;
+               res = Math.round(base + 2.3 * (inches - 60));
+               break;
+          case 'WHR':
+               res = (waist / hip).toFixed(2);
+               break;
+          case 'ORM':
+               res = Math.round(orm.weight * (1 + orm.reps / 30));
+               break;
+          case 'PREGNANCY':
+               if (lmpDate) {
+                   const d = new Date(lmpDate);
+                   d.setDate(d.getDate() + 280);
+                   res = d.toLocaleDateString();
+               }
+               break;
+          default:
+              res = null;
       }
-      return (10 * profile.weight) + (6.25 * profile.height) - (5 * profile.age) - 161;
+      setCalculatedResult(res);
   };
-  const bmr = calculateBMR();
-  const tdee = Math.round(bmr * calcActivity);
 
-  // 2. Protein & Water
-  const proteinNeeds = Math.round(profile.weight * (calcActivity > 1.5 ? 1.8 : 1.2)); // 1.2g to 1.8g per kg
-  const waterNeeds = (profile.weight * 0.033).toFixed(1);
-
-  // 3. Ideal Body Weight (Devine Formula)
-  const calculateIBW = () => {
-      const heightInInches = profile.height / 2.54;
-      const base = profile.gender === Gender.MALE ? 50 : 45.5;
-      const factor = 2.3 * (heightInInches - 60);
-      return Math.round(base + factor);
+  // Calculator Metadata
+  const CALCULATOR_DATA: Record<CalculatorType, { title: string, desc: string, icon: any, color: string }> = {
+      BMI: { title: "BMI Calculator", desc: "Body Mass Index determines if you are in a healthy weight range.", icon: Scale, color: "text-blue-600 bg-blue-50" },
+      BODY_FAT: { title: "Body Fat %", desc: "US Navy method uses measurements to estimate fat percentage.", icon: Percent, color: "text-red-600 bg-red-50" },
+      BMR: { title: "BMR Calculator", desc: "Basal Metabolic Rate is calories burned at complete rest.", icon: Flame, color: "text-orange-600 bg-orange-50" },
+      TDEE: { title: "TDEE Calculator", desc: "Total Daily Energy Expenditure for maintenance calories.", icon: Zap, color: "text-yellow-600 bg-yellow-50" },
+      PROTEIN: { title: "Protein Calculator", desc: "Optimal daily protein intake for muscle repair.", icon: Utensils, color: "text-green-600 bg-green-50" },
+      WATER: { title: "Hydration", desc: "Daily water intake based on body weight.", icon: Droplets, color: "text-cyan-600 bg-cyan-50" },
+      IBW: { title: "Ideal Weight", desc: "Estimated healthy weight based on height.", icon: Target, color: "text-purple-600 bg-purple-50" },
+      HEART_RATE: { title: "Heart Rate", desc: "Target zones for cardio training.", icon: HeartPulse, color: "text-pink-600 bg-pink-50" },
+      WHR: { title: "WHR Ratio", desc: "Waist-to-Hip ratio assesses metabolic risk.", icon: Ruler, color: "text-indigo-600 bg-indigo-50" },
+      ORM: { title: "One Rep Max", desc: "Maximum weight you can lift for one rep.", icon: Dumbbell, color: "text-gray-600 bg-gray-50" },
+      PREGNANCY: { title: "Due Date", desc: "Estimated delivery date from LMP.", icon: Baby, color: "text-rose-600 bg-rose-50" },
+      BREATH: { title: "Lung Test", desc: "Simple breath hold timer for lung capacity.", icon: Wind, color: "text-teal-600 bg-teal-50" },
   };
-  const ibw = calculateIBW();
 
-  // 4. Body Fat % (US Navy Method)
-  const calculateBodyFat = () => {
-      const h = profile.height;
-      const n = bodyStats.neck;
-      const w = bodyStats.waist;
-      const hip = bodyStats.hip;
-
-      if (profile.gender === Gender.MALE) {
-          // 495 / (1.0324 - 0.19077 * log10(waist - neck) + 0.15456 * log10(height)) - 450
-          if (w - n <= 0) return 0;
-          const val = 495 / (1.0324 - 0.19077 * Math.log10(w - n) + 0.15456 * Math.log10(h)) - 450;
-          return val > 0 ? val.toFixed(1) : 0;
-      } else {
-          // 495 / (1.29579 - 0.35004 * log10(waist + hip - neck) + 0.22100 * log10(height)) - 450
-          if (w + hip - n <= 0) return 0;
-          const val = 495 / (1.29579 - 0.35004 * Math.log10(w + hip - n) + 0.22100 * Math.log10(h)) - 450;
-          return val > 0 ? val.toFixed(1) : 0;
-      }
-  };
-  const bodyFat = calculateBodyFat();
-
-  // 5. Heart Rate Zones
-  const maxHR = 220 - profile.age;
-  const zone2Min = Math.round(maxHR * 0.6);
-  const zone2Max = Math.round(maxHR * 0.7);
-
-  // 6. Waist to Hip Ratio
-  const whr = (bodyStats.waist / bodyStats.hip).toFixed(2);
-  const getWhrRisk = () => {
-      const r = parseFloat(whr);
-      if (profile.gender === Gender.MALE) {
-          if (r <= 0.95) return 'Low Risk';
-          if (r <= 1.0) return 'Moderate';
-          return 'High Risk';
-      } else {
-          if (r <= 0.80) return 'Low Risk';
-          if (r <= 0.85) return 'Moderate';
-          return 'High Risk';
-      }
-  }
-
-  // 7. One Rep Max
-  const calculate1RM = () => {
-      // Epley Formula
-      return Math.round(orm.weight * (1 + orm.reps / 30));
-  }
-  const oneRepMax = calculate1RM();
-
-  // 8. Pregnancy Due Date
-  const calculateDueDate = () => {
-      if (!lmpDate) return null;
-      const date = new Date(lmpDate);
-      date.setDate(date.getDate() + 280);
-      return date.toLocaleDateString(undefined, {  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  }
-  const dueDate = calculateDueDate();
 
   // Render Logic
   return (
@@ -423,8 +475,8 @@ const App: React.FC = () => {
                   <button onClick={() => startWorkout()} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-orange-100 text-orange-600">
                       <Zap size={16} /> Quick Workout
                   </button>
-                  <button onClick={incrementWater} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-blue-100 text-blue-600">
-                      <Droplets size={16} /> Log Water
+                  <button onClick={toggleBrownNoise} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 ${isPlayingNoise ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-indigo-100 text-indigo-600'}`}>
+                      {isPlayingNoise ? <VolumeX size={16}/> : <Headphones size={16}/>} {isPlayingNoise ? 'Stop Audio' : 'Sleep Aid'}
                   </button>
                   <button onClick={() => { setSelectedScan(null); setShowScanner(true); }} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-purple-100 text-purple-600">
                       <Monitor size={16} /> Roast My Desk
@@ -559,22 +611,20 @@ const App: React.FC = () => {
                     
                     <DashboardCard title="Recent Activity" icon={History}>
                         <div className="space-y-4">
-                            {[
-                                { title: 'Scanned Apple', time: '2h ago', type: 'Food', score: 95 },
-                                { title: 'Logged Sleep', time: '7h ago', type: 'Health', score: 80 },
-                                { title: 'Drank Water', time: '8h ago', type: 'Hydration', score: 100 },
-                            ].map((item, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                            {scanHistory.length > 0 ? scanHistory.slice(0, 3).map((item, i) => (
+                                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100" onClick={() => handleViewScan(item)}>
                                     <div className="flex items-center gap-3">
                                         <div className="w-2 h-2 rounded-full bg-brand-500"></div>
                                         <div>
-                                            <p className="text-sm font-bold text-gray-800">{item.title}</p>
-                                            <p className="text-xs text-gray-400">{item.time}</p>
+                                            <p className="text-sm font-bold text-gray-800">{item.productName || 'Scan'}</p>
+                                            <p className="text-xs text-gray-400">{new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                                         </div>
                                     </div>
                                     <span className="text-xs font-bold text-brand-600 bg-brand-100 px-2 py-1 rounded">{item.score} pts</span>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="text-center py-8 text-gray-400 text-sm">No recent scans.</div>
+                            )}
                         </div>
                     </DashboardCard>
                  </div>
@@ -623,191 +673,196 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* --- VIEW: CALCULATORS (NEW) --- */}
-        {view === AppView.CALCULATORS && (
+        
+        {/* --- VIEW: HISTORY (NEW) --- */}
+        {view === AppView.HISTORY && (
             <div className="space-y-8 animate-in fade-in">
                  <div className="flex justify-between items-center">
                     <div>
-                        <h2 className="text-2xl font-bold">Health Calculators</h2>
-                        <p className="text-gray-500">Comprehensive suite of medical & fitness tools.</p>
+                        <h2 className="text-2xl font-bold">Activity History</h2>
+                        <p className="text-gray-500">Your past scans and logs.</p>
                     </div>
                  </div>
 
-                 <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                     
-                     {/* Global Input for Calc */}
-                     <div className="mb-8">
-                         <label className="block text-sm font-bold text-gray-700 mb-2">Your Activity Level</label>
-                         <input 
-                             type="range" 
-                             min="1.2" 
-                             max="1.9" 
-                             step="0.175" 
-                             value={calcActivity} 
-                             onChange={(e) => setCalcActivity(parseFloat(e.target.value))}
-                             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand-600"
-                         />
-                         <div className="flex justify-between text-xs text-gray-500 font-bold uppercase mt-2">
-                             <span>Sedentary</span>
-                             <span>Light</span>
-                             <span>Moderate</span>
-                             <span>Active</span>
-                             <span>Athlete</span>
+                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                     {scanHistory.length === 0 ? (
+                         <div className="text-center py-12 text-gray-400">
+                             <History size={48} className="mx-auto mb-4 opacity-20"/>
+                             <p>No history yet. Start scanning!</p>
                          </div>
-                         <p className="text-center text-brand-600 font-bold mt-2 text-lg">
-                             {calcActivity === 1.2 ? 'Sedentary (Office Job)' : 
-                              calcActivity === 1.375 ? 'Light Exercise (1-2 days)' :
-                              calcActivity === 1.55 ? 'Moderate Exercise (3-5 days)' :
-                              calcActivity === 1.725 ? 'Heavy Exercise (6-7 days)' : 'Athlete (2x per day)'}
-                         </p>
+                     ) : (
+                         <div className="grid md:grid-cols-2 gap-4">
+                             {scanHistory.map((scan) => (
+                                 <div key={scan.id} className="flex gap-4 p-4 border border-gray-100 rounded-xl hover:shadow-md transition cursor-pointer" onClick={() => handleViewScan(scan)}>
+                                     <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                         <img src={scan.imagePreview} alt="scan" className="w-full h-full object-cover" />
+                                     </div>
+                                     <div className="flex-1">
+                                         <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-gray-800">{scan.productName || scan.type}</h4>
+                                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                                scan.recommendation === 'BUY' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            }`}>{scan.recommendation}</span>
+                                         </div>
+                                         <p className="text-xs text-gray-500 mt-1 line-clamp-2">{scan.analysis}</p>
+                                         <p className="text-[10px] text-gray-400 mt-2">{new Date(scan.timestamp).toLocaleString()}</p>
+                                     </div>
+                                 </div>
+                             ))}
+                         </div>
+                     )}
+                 </div>
+            </div>
+        )}
+
+        {/* --- VIEW: CALCULATORS (INTERACTIVE REDESIGN) --- */}
+        {view === AppView.CALCULATORS && (
+            <div className="space-y-8 animate-in fade-in flex flex-col md:flex-row gap-6 h-[calc(100vh-140px)]">
+                 {/* Sidebar List */}
+                 <div className="md:w-72 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-y-auto no-scrollbar">
+                     <div className="p-4 border-b bg-gray-50">
+                         <h3 className="font-bold text-gray-800">Select Tool</h3>
                      </div>
-
-                     {/* Body Stats Input for Advanced Calc */}
-                     <div className="mb-8 p-6 bg-gray-50 rounded-2xl border border-gray-100">
-                         <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Ruler size={16}/> Body Measurements (for Body Fat, WHR)</h4>
-                         <div className="grid grid-cols-3 gap-4">
-                             <div>
-                                 <label className="text-xs font-bold text-gray-500 uppercase">Neck (cm)</label>
-                                 <input type="number" value={bodyStats.neck} onChange={e => setBodyStats({...bodyStats, neck: parseInt(e.target.value)})} className="w-full p-2 rounded-lg mt-1 border border-gray-200 font-bold text-center" />
-                             </div>
-                             <div>
-                                 <label className="text-xs font-bold text-gray-500 uppercase">Waist (cm)</label>
-                                 <input type="number" value={bodyStats.waist} onChange={e => setBodyStats({...bodyStats, waist: parseInt(e.target.value)})} className="w-full p-2 rounded-lg mt-1 border border-gray-200 font-bold text-center" />
-                             </div>
-                             <div>
-                                 <label className="text-xs font-bold text-gray-500 uppercase">Hip (cm)</label>
-                                 <input type="number" value={bodyStats.hip} onChange={e => setBodyStats({...bodyStats, hip: parseInt(e.target.value)})} className="w-full p-2 rounded-lg mt-1 border border-gray-200 font-bold text-center" />
-                             </div>
-                         </div>
-                     </div>
-
-                     {/* Grid of Calculators */}
-                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                         
-                         {/* --- SECTION: BODY COMPOSITION --- */}
-                         
-                         {/* BMI Card */}
-                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-slate-700">BMI Check</h4><p className="text-xs text-slate-500">Body Mass Index</p></div>
-                                 <Scale size={20} className="text-slate-500" />
-                             </div>
-                             <div className="text-3xl font-black text-slate-800 mb-2">{(profile.weight / ((profile.height/100)**2)).toFixed(1)}</div>
-                             <div className="w-full bg-slate-200 rounded-full h-2 mb-2"><div className="h-full bg-slate-600 rounded-full" style={{width: '60%'}}></div></div>
-                             <p className="text-xs text-slate-600 font-bold">Normal Weight</p>
-                         </div>
-
-                         {/* Body Fat Card */}
-                         <div className="bg-red-50 p-6 rounded-2xl border border-red-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-red-700">Body Fat %</h4><p className="text-xs text-red-500">US Navy Method</p></div>
-                                 <Percent size={20} className="text-red-500" />
-                             </div>
-                             <div className="text-3xl font-black text-red-900 mb-2">{bodyFat}%</div>
-                             <p className="text-xs text-red-700">Based on waist/neck/hip.</p>
-                         </div>
-
-                         {/* Waist to Hip Ratio */}
-                         <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-orange-700">WHR Score</h4><p className="text-xs text-orange-500">Metabolic Risk</p></div>
-                                 <Activity size={20} className="text-orange-500" />
-                             </div>
-                             <div className="text-3xl font-black text-orange-900 mb-2">{whr}</div>
-                             <p className="text-xs font-bold text-orange-700">{getWhrRisk()}</p>
-                         </div>
-
-                         {/* Ideal Body Weight */}
-                         <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-purple-700">Ideal Weight</h4><p className="text-xs text-purple-500">Devine Formula</p></div>
-                                 <Target size={20} className="text-purple-500" />
-                             </div>
-                             <div className="text-3xl font-black text-purple-900 mb-2">{ibw} <span className="text-sm font-medium text-purple-500">kg</span></div>
-                             <p className="text-xs text-purple-700">Estimated healthy goal.</p>
-                         </div>
-
-                         {/* --- SECTION: ENERGY & NUTRITION --- */}
-
-                         {/* BMR Card */}
-                         <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-blue-700">BMR</h4><p className="text-xs text-blue-500">Calories at Rest</p></div>
-                                 <Flame size={20} className="text-blue-500" />
-                             </div>
-                             <div className="text-3xl font-black text-blue-800 mb-2">{Math.round(bmr)}</div>
-                             <p className="text-xs text-blue-600">Base metabolic rate.</p>
-                         </div>
-
-                         {/* TDEE Card */}
-                         <div className="bg-brand-50 p-6 rounded-2xl border border-brand-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-brand-700">TDEE</h4><p className="text-xs text-brand-500">Total Energy</p></div>
-                                 <Zap size={20} className="text-brand-500" />
-                             </div>
-                             <div className="text-3xl font-black text-brand-900 mb-2">{tdee}</div>
-                             <p className="text-xs text-brand-700">Maintenance calories.</p>
-                         </div>
-                         
-                         {/* Protein Card */}
-                         <div className="bg-green-50 p-6 rounded-2xl border border-green-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-green-700">Protein</h4><p className="text-xs text-green-500">Daily Target</p></div>
-                                 <Utensils size={20} className="text-green-500" />
-                             </div>
-                             <div className="text-3xl font-black text-green-900 mb-2">{proteinNeeds}g</div>
-                             <p className="text-xs text-green-700">For muscle repair.</p>
-                         </div>
-
-                         {/* --- SECTION: PERFORMANCE --- */}
-
-                         {/* One Rep Max */}
-                         <div className="bg-gray-800 text-white p-6 rounded-2xl border border-gray-700 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold">1 Rep Max</h4><p className="text-xs text-gray-400">Strength Potential</p></div>
-                                 <Dumbbell size={20} className="text-gray-400" />
-                             </div>
-                             <div className="flex gap-2 mb-2">
-                                 <input type="number" className="w-16 bg-gray-700 rounded p-1 text-center text-sm font-bold" value={orm.weight} onChange={e => setOrm({...orm, weight: parseInt(e.target.value)})} placeholder="Kg" />
-                                 <input type="number" className="w-12 bg-gray-700 rounded p-1 text-center text-sm font-bold" value={orm.reps} onChange={e => setOrm({...orm, reps: parseInt(e.target.value)})} placeholder="Reps" />
-                             </div>
-                             <div className="text-3xl font-black text-brand-400 mb-1">{oneRepMax} <span className="text-sm text-gray-400">kg</span></div>
-                             <p className="text-xs text-gray-400">Epley Formula</p>
-                         </div>
-
-                         {/* Breath Hold Test */}
-                         <div className="bg-teal-50 p-6 rounded-2xl border border-teal-100 hover:shadow-md transition flex flex-col items-center text-center">
-                             <h4 className="font-bold text-teal-800 mb-1">Lung Capacity</h4>
-                             <p className="text-xs text-teal-600 mb-4">Breath Hold Test</p>
-                             
-                             <div className="w-20 h-20 rounded-full border-4 border-teal-200 flex items-center justify-center mb-4 bg-white relative">
-                                 <span className="text-2xl font-black text-teal-600">{breathTimer}s</span>
-                                 {isBreathHolding && <div className="absolute inset-0 border-4 border-teal-500 rounded-full animate-ping opacity-20"></div>}
-                             </div>
-                             
-                             <button 
-                                 onMouseDown={() => { setIsBreathHolding(true); setBreathTimer(0); }}
-                                 onMouseUp={() => setIsBreathHolding(false)}
-                                 onTouchStart={() => { setIsBreathHolding(true); setBreathTimer(0); }}
-                                 onTouchEnd={() => setIsBreathHolding(false)}
-                                 className="bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-sm active:scale-95 transition"
+                     <div className="p-2 space-y-1">
+                         {(Object.keys(CALCULATOR_DATA) as CalculatorType[]).map((type) => (
+                             <button
+                                key={type}
+                                onClick={() => { setActiveCalculator(type); setCalculatedResult(null); }}
+                                className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-3 transition ${
+                                    activeCalculator === type 
+                                    ? 'bg-brand-50 text-brand-700 border-l-4 border-brand-600' 
+                                    : 'text-gray-600 hover:bg-gray-50 border-l-4 border-transparent'
+                                }`}
                              >
-                                 Hold to Test
+                                 <div className={`p-1.5 rounded-lg ${CALCULATOR_DATA[type].color.replace('text-', 'text-opacity-100 ')} bg-opacity-20`}>
+                                     {React.createElement(CALCULATOR_DATA[type].icon, { size: 16 })}
+                                 </div>
+                                 {CALCULATOR_DATA[type].title}
+                             </button>
+                         ))}
+                     </div>
+                 </div>
+
+                 {/* Main Calculator Panel */}
+                 <div className="flex-1 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row">
+                     {/* Input Form */}
+                     <div className="flex-1 p-8 overflow-y-auto">
+                         <div className="flex items-center gap-3 mb-2">
+                             <div className={`p-2 rounded-xl ${CALCULATOR_DATA[activeCalculator].color}`}>
+                                 {React.createElement(CALCULATOR_DATA[activeCalculator].icon, { size: 24 })}
+                             </div>
+                             <div>
+                                 <h2 className="text-2xl font-black text-gray-900">{CALCULATOR_DATA[activeCalculator].title}</h2>
+                                 <p className="text-sm text-gray-500">{CALCULATOR_DATA[activeCalculator].desc}</p>
+                             </div>
+                         </div>
+                         
+                         <div className="mt-8 space-y-6">
+                             {/* Common Inputs */}
+                             <div className="grid grid-cols-2 gap-4">
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-400 uppercase">Weight (kg)</label>
+                                     <input type="number" value={bodyStats.weight} onChange={e => setBodyStats({...bodyStats, weight: parseFloat(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl mt-1 font-bold border-2 border-transparent focus:border-brand-300 focus:bg-white transition" />
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-400 uppercase">Height (cm)</label>
+                                     <input type="number" value={bodyStats.height} onChange={e => setBodyStats({...bodyStats, height: parseFloat(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl mt-1 font-bold border-2 border-transparent focus:border-brand-300 focus:bg-white transition" />
+                                 </div>
+                             </div>
+
+                             {['BMR', 'TDEE', 'PROTEIN'].includes(activeCalculator) && (
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Activity Level</label>
+                                     <div className="flex gap-2 overflow-x-auto pb-2">
+                                         {[ActivityLevel.SEDENTARY, ActivityLevel.MODERATE, ActivityLevel.VERY_ACTIVE].map((lvl) => (
+                                             <button 
+                                                key={lvl}
+                                                onClick={() => setCalcActivity(lvl)}
+                                                className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap border-2 ${calcActivity === lvl ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-100 text-gray-500'}`}
+                                             >
+                                                 {lvl === 1.2 ? 'Sedentary' : lvl === 1.55 ? 'Moderate' : 'Active'}
+                                             </button>
+                                         ))}
+                                     </div>
+                                 </div>
+                             )}
+
+                             {['BODY_FAT', 'WHR'].includes(activeCalculator) && (
+                                 <div className="bg-gray-50 p-4 rounded-xl space-y-4">
+                                     <h4 className="font-bold text-sm text-gray-700">Measurements</h4>
+                                     <div className="grid grid-cols-3 gap-3">
+                                         <div>
+                                             <label className="text-[10px] font-bold text-gray-400 uppercase">Waist</label>
+                                             <input type="number" value={bodyStats.waist} onChange={e => setBodyStats({...bodyStats, waist: parseFloat(e.target.value)})} className="w-full p-2 rounded-lg border text-center" />
+                                         </div>
+                                         <div>
+                                             <label className="text-[10px] font-bold text-gray-400 uppercase">Neck</label>
+                                             <input type="number" value={bodyStats.neck} onChange={e => setBodyStats({...bodyStats, neck: parseFloat(e.target.value)})} className="w-full p-2 rounded-lg border text-center" />
+                                         </div>
+                                         <div>
+                                             <label className="text-[10px] font-bold text-gray-400 uppercase">Hip</label>
+                                             <input type="number" value={bodyStats.hip} onChange={e => setBodyStats({...bodyStats, hip: parseFloat(e.target.value)})} className="w-full p-2 rounded-lg border text-center" />
+                                         </div>
+                                     </div>
+                                 </div>
+                             )}
+                             
+                             {activeCalculator === 'ORM' && (
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <div><label className="text-xs font-bold text-gray-400 uppercase">Lift Weight (kg)</label><input type="number" value={orm.weight} onChange={e => setOrm({...orm, weight: parseFloat(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl mt-1 font-bold" /></div>
+                                      <div><label className="text-xs font-bold text-gray-400 uppercase">Reps Performed</label><input type="number" value={orm.reps} onChange={e => setOrm({...orm, reps: parseFloat(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl mt-1 font-bold" /></div>
+                                  </div>
+                             )}
+
+                             {activeCalculator === 'PREGNANCY' && (
+                                 <div><label className="text-xs font-bold text-gray-400 uppercase">First Day of Last Period</label><input type="date" value={lmpDate} onChange={e => setLmpDate(e.target.value)} className="w-full p-3 bg-gray-50 rounded-xl mt-1 font-bold" /></div>
+                             )}
+
+                             {/* Action Button */}
+                             <button 
+                                onClick={runCalculation}
+                                className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl shadow-lg hover:scale-[1.02] transition active:scale-95 flex items-center justify-center gap-2"
+                             >
+                                 <Calculator size={20}/> Calculate
                              </button>
                          </div>
+                     </div>
 
-                         {/* Pregnancy Due Date */}
-                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-100 hover:shadow-md transition">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h4 className="font-bold text-pink-700">Due Date</h4><p className="text-xs text-pink-500">Pregnancy Calc</p></div>
-                                 <Baby size={20} className="text-pink-500" />
+                     {/* Result Panel */}
+                     <div className="md:w-80 bg-slate-50 border-l border-gray-100 p-8 flex flex-col justify-center">
+                         {calculatedResult !== null ? (
+                             <div className="text-center animate-in zoom-in duration-300">
+                                 <p className="text-sm font-bold text-gray-500 uppercase mb-4">Your Result</p>
+                                 <div className="text-5xl font-black text-brand-600 mb-2">
+                                     {calculatedResult}
+                                     <span className="text-lg text-gray-400 font-medium ml-1">
+                                         {['BMI', 'WHR'].includes(activeCalculator) ? '' : 
+                                          ['BODY_FAT'].includes(activeCalculator) ? '%' :
+                                          ['PROTEIN'].includes(activeCalculator) ? 'g' :
+                                          ['WATER'].includes(activeCalculator) ? 'L' :
+                                          ['ORM', 'IBW'].includes(activeCalculator) ? 'kg' : ''}
+                                     </span>
+                                 </div>
+                                 <div className="inline-block px-4 py-2 bg-white rounded-lg shadow-sm text-sm font-bold text-gray-700 mt-4 border border-gray-200">
+                                     {/* Simple interpretation logic */}
+                                     {activeCalculator === 'BMI' && (parseFloat(calculatedResult as string) < 18.5 ? 'Underweight' : parseFloat(calculatedResult as string) < 25 ? 'Normal Weight' : 'Overweight')}
+                                     {activeCalculator === 'BODY_FAT' && 'Estimated Fat %'}
+                                     {activeCalculator === 'BMR' && 'Calories/day'}
+                                     {activeCalculator === 'ORM' && 'Max Potential'}
+                                 </div>
+                                 
+                                 <p className="text-xs text-gray-400 mt-8 leading-relaxed">
+                                     *This is an estimate. Consult a professional for medical advice.
+                                 </p>
                              </div>
-                             <input type="date" className="w-full bg-white border border-pink-200 rounded-lg p-2 text-sm mb-3" onChange={(e) => setLmpDate(e.target.value)} />
-                             <div className="text-lg font-black text-pink-900 mb-1 leading-tight">{dueDate || '--'}</div>
-                             <p className="text-xs text-pink-700">Estimated Delivery</p>
-                         </div>
-
+                         ) : (
+                             <div className="text-center text-gray-400">
+                                 <div className="w-20 h-20 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
+                                     <Calculator size={32} className="opacity-50"/>
+                                 </div>
+                                 <p className="text-sm">Enter your details and hit calculate.</p>
+                             </div>
+                         )}
                      </div>
                  </div>
             </div>
@@ -839,6 +894,24 @@ const App: React.FC = () => {
                  {trackerTab === 'TOOLS' && (
                      <div className="grid md:grid-cols-2 gap-6">
                         
+                        {/* Sleep Aid */}
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
+                             <div className="flex justify-between items-start mb-4">
+                                 <div>
+                                     <h3 className="font-bold text-indigo-900 flex items-center gap-2"><Moon size={20}/> Deep Sleep Aid</h3>
+                                     <p className="text-xs text-indigo-500">Brown Noise Generator</p>
+                                 </div>
+                                 <button onClick={toggleBrownNoise} className={`p-3 rounded-full transition ${isPlayingNoise ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                                     {isPlayingNoise ? <VolumeX size={24}/> : <Headphones size={24}/>}
+                                 </button>
+                             </div>
+                             <div className="h-12 w-full flex items-end gap-1 opacity-50">
+                                 {[...Array(20)].map((_, i) => (
+                                     <div key={i} className={`flex-1 rounded-t-sm transition-all duration-300 ${isPlayingNoise ? 'bg-indigo-400 animate-pulse' : 'bg-gray-200'}`} style={{height: `${Math.random() * 100}%`}}></div>
+                                 ))}
+                             </div>
+                        </div>
+
                         {/* Fasting Timer */}
                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between">
                             <div className="flex items-center gap-2 mb-4 text-orange-600">
@@ -909,43 +982,6 @@ const App: React.FC = () => {
                                 {showLogSuccess && ' Logged!'}
                             </button>
                         </div>
-
-                        {/* Gut Health Tracker */}
-                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">💩 Gut Health Tracker</h3>
-                            <p className="text-xs text-gray-500 mb-4">Track digestion for acidity insights.</p>
-                            <div className="flex justify-between gap-1 mb-4">
-                                {[1,2,3,4,5].map(type => (
-                                    <button 
-                                        key={type}
-                                        onClick={() => setStoolType(type)}
-                                        className={`flex-1 h-12 rounded-lg flex items-center justify-center font-bold text-lg transition ${stoolType === type ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-800'}`}
-                                    >
-                                        {type}
-                                    </button>
-                                ))}
-                            </div>
-                            <p className="text-center text-xs text-gray-400 font-medium">Bristol Stool Scale (1: Hard - 5: Liquid)</p>
-                        </div>
-
-                        {/* Sleep Calc */}
-                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2"><BedDouble size={18}/> Sleep Cycle Calculator</h3>
-                            <div className="flex gap-4 mb-4">
-                                <div className="flex-1">
-                                    <label className="text-xs font-bold text-gray-400">Bedtime</label>
-                                    <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="23:00" />
-                                </div>
-                                <div className="flex-1">
-                                    <label className="text-xs font-bold text-gray-400">Wake Up</label>
-                                    <input type="time" className="w-full p-2 bg-gray-50 rounded-lg mt-1 font-bold" defaultValue="07:00" />
-                                </div>
-                            </div>
-                            <div className="p-4 bg-purple-50 rounded-xl text-center">
-                                <p className="text-purple-900 font-bold text-lg">5 Cycles Recommended</p>
-                                <p className="text-purple-600 text-xs">Wake up at 6:30 AM or 8:00 AM for best energy.</p>
-                            </div>
-                        </div>
                      </div>
                  )}
 
@@ -958,10 +994,6 @@ const App: React.FC = () => {
                              <p className="text-gray-400 mb-8">We are building advanced AI features to beat the competition.</p>
                              
                              <div className="grid md:grid-cols-3 gap-4 text-left">
-                                 <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
-                                     <h4 className="font-bold text-brand-300 mb-1">Sleep Sounds</h4>
-                                     <p className="text-xs text-gray-300">AI-generated brown noise & binaural beats.</p>
-                                 </div>
                                  <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
                                      <h4 className="font-bold text-brand-300 mb-1">AI Doctor Report</h4>
                                      <p className="text-xs text-gray-300">Export your monthly logs as a PDF for your GP.</p>
@@ -981,21 +1013,21 @@ const App: React.FC = () => {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-2 flex justify-around items-center z-40 pb-safe">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-2 flex justify-around items-center z-40 pb-safe shadow-xl">
           <button onClick={() => setView(AppView.DASHBOARD)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.DASHBOARD ? 'text-brand-600' : 'text-gray-400'}`}>
               <LayoutDashboard size={22} />
               <span className="text-[10px] font-bold mt-1">Home</span>
           </button>
-          <button onClick={() => setView(AppView.PLANNER)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.PLANNER ? 'text-brand-600' : 'text-gray-400'}`}>
-              <Utensils size={22} />
-              <span className="text-[10px] font-bold mt-1">Plan</span>
+          <button onClick={() => setView(AppView.HISTORY)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.HISTORY ? 'text-brand-600' : 'text-gray-400'}`}>
+              <History size={22} />
+              <span className="text-[10px] font-bold mt-1">History</span>
           </button>
-          <div className="relative -top-6">
+          <div className="relative -top-8 z-50">
               <button 
                 onClick={() => { setSelectedScan(null); setShowScanner(true); }}
-                className="w-14 h-14 bg-gradient-to-tr from-brand-600 to-brand-400 rounded-full shadow-lg shadow-brand-200 flex items-center justify-center text-white transform active:scale-95 transition border-4 border-slate-50"
+                className="w-16 h-16 bg-gradient-to-tr from-brand-500 to-brand-400 rounded-full shadow-lg shadow-brand-200 flex items-center justify-center text-white transform active:scale-95 transition border-4 border-slate-50"
               >
-                  <ScanLine size={24} />
+                  <ScanLine size={28} />
               </button>
           </div>
           <button onClick={() => setView(AppView.CALCULATORS)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.CALCULATORS ? 'text-brand-600' : 'text-gray-400'}`}>
@@ -1045,14 +1077,29 @@ const App: React.FC = () => {
           </div>
       )}
 
-      <VoiceAgent onSpeechResult={handleVoiceInput} />
+      {/* Floating Buttons */}
+      <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-40">
+           {/* Chat FAB */}
+           <button 
+              onClick={() => setIsChatOpen(true)}
+              className="w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all transform hover:scale-105 bg-blue-600 text-white"
+            >
+              <MessageSquare />
+            </button>
+           
+           {/* Voice FAB */}
+           <VoiceAgent onSpeechResult={handleVoiceInput} />
+      </div>
 
       {/* Chat Dialog */}
       {isChatOpen && (
-          <div className="fixed bottom-28 right-6 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-30 flex flex-col max-h-[500px] animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="fixed bottom-28 right-6 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 flex flex-col max-h-[500px] animate-in slide-in-from-bottom-10 fade-in duration-300">
               <div className="p-4 border-b flex justify-between items-center bg-brand-600 rounded-t-2xl text-white">
                   <h3 className="font-bold flex items-center gap-2"><MessageSquare size={18}/> Health Assistant</h3>
-                  <button onClick={() => setIsChatOpen(false)}><XIcon size={18}/></button>
+                  <div className="flex gap-2">
+                       <button onClick={stopAudio} className="p-1 hover:bg-brand-500 rounded" title="Stop Audio"><VolumeX size={18}/></button>
+                       <button onClick={() => setIsChatOpen(false)}><XIcon size={18}/></button>
+                  </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 h-80">
                   {chatHistory.length === 0 && (
@@ -1074,6 +1121,24 @@ const App: React.FC = () => {
                           </div>
                       </div>
                   ))}
+              </div>
+              
+              {/* Chat Input */}
+              <div className="p-3 bg-white border-t rounded-b-2xl flex gap-2">
+                  <input 
+                    type="text" 
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                    placeholder="Type your question..."
+                    className="flex-1 p-2 bg-gray-50 rounded-lg text-sm border-none focus:ring-1 focus:ring-brand-500 outline-none"
+                  />
+                  <button 
+                    onClick={handleSendChat}
+                    className="p-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition"
+                  >
+                      <Send size={18}/>
+                  </button>
               </div>
           </div>
       )}

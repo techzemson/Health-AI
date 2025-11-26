@@ -26,6 +26,20 @@ export enum ActivityLevel {
   VERY_ACTIVE = 1.9
 }
 
+export type CalculatorType = 
+  | 'BMI' 
+  | 'BODY_FAT' 
+  | 'BMR' 
+  | 'TDEE' 
+  | 'PROTEIN' 
+  | 'WATER' 
+  | 'IBW' 
+  | 'HEART_RATE' 
+  | 'WHR' 
+  | 'ORM' 
+  | 'PREGNANCY' 
+  | 'BREATH';
+
 export interface UserProfile {
   name: string;
   age: number;
@@ -71,10 +85,17 @@ export interface RecipeSuggestion {
   difficulty: string;
 }
 
+export interface MedicineDetails {
+  dosage?: string;
+  activeIngredients?: string[];
+  warnings?: string[];
+  sideEffects?: string[];
+}
+
 export interface ScanResult {
   id: string;
   timestamp: number;
-  type: 'FOOD' | 'PRODUCT' | 'SKIN' | 'WORKSPACE' | 'OTHER';
+  type: 'FOOD' | 'PRODUCT' | 'MEDICINE' | 'SKIN' | 'WORKSPACE' | 'OTHER';
   imagePreview: string; // Base64
   productName?: string;
   analysis: string; // General summary
@@ -99,6 +120,9 @@ export interface ScanResult {
   glycemicLoad?: 'LOW' | 'MEDIUM' | 'HIGH';
   storageTips?: string;
   recipes?: RecipeSuggestion[];
+  
+  // Medicine Specific
+  medicineDetails?: MedicineDetails;
   
   affiliateLinks?: {
     name: string;

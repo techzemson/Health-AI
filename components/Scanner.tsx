@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, AlertTriangle, CheckCircle, ShoppingBag, X, Loader2, Info, List, PieChart as PieChartIcon, Activity, Heart, ShieldAlert, Zap, Leaf, Thermometer, Flame, Clock, ChefHat, BookOpen, Monitor } from 'lucide-react';
+import { Camera, AlertTriangle, CheckCircle, ShoppingBag, X, Loader2, Info, List, PieChart as PieChartIcon, Activity, Heart, ShieldAlert, Zap, Leaf, Thermometer, Flame, Clock, ChefHat, BookOpen, Monitor, Pill } from 'lucide-react';
 import { analyzeImage } from '../services/geminiService';
 import { UserProfile, ScanResult } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
@@ -12,7 +12,7 @@ interface ScannerProps {
   initialData?: ScanResult | null; // For Read-Only History Mode
 }
 
-type Tab = 'OVERVIEW' | 'INGREDIENTS' | 'MACROS' | 'RECIPES';
+type Tab = 'OVERVIEW' | 'INGREDIENTS' | 'MACROS' | 'RECIPES' | 'MEDICINE';
 
 const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initialData }) => {
   const [image, setImage] = useState<string | null>(initialData?.imagePreview || null);
@@ -27,6 +27,9 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
     if (initialData) {
         setResult(initialData);
         setImage(initialData.imagePreview);
+        if (initialData.type === 'MEDICINE') {
+            setActiveTab('MEDICINE');
+        }
     }
   }, [initialData]);
 
@@ -67,6 +70,12 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
           timestamp: Date.now(),
           imagePreview: base64Image
       };
+
+      if (fullResult.type === 'MEDICINE') {
+          setActiveTab('MEDICINE');
+      } else {
+          setActiveTab('OVERVIEW');
+      }
 
       setTimeout(() => {
         setResult(fullResult);
@@ -121,17 +130,28 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
       );
   };
 
+  const tabs: {id: Tab, label: string, icon: any}[] = [
+      { id: 'OVERVIEW', label: 'Overview', icon: Info },
+      { id: 'INGREDIENTS', label: 'Ingredients', icon: List },
+      { id: 'MACROS', label: 'Nutrition', icon: PieChartIcon },
+      { id: 'RECIPES', label: 'Recipes', icon: ChefHat },
+  ];
+
+  if (result?.type === 'MEDICINE') {
+      tabs.splice(1, 0, { id: 'MEDICINE', label: 'Medicine Info', icon: Pill });
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto backdrop-blur-md">
-      <div className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-0 md:p-4 overflow-y-auto backdrop-blur-md">
+      <div className="bg-white w-full max-w-4xl md:rounded-3xl h-full md:h-auto md:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-brand-600 to-brand-teal text-white sticky top-0 z-10">
+        <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-brand-600 to-brand-teal text-white sticky top-0 z-10 safe-top">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Camera size={24} /> 
             {result ? 'Scan Results' : 'AI Health Scanner'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition">
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition bg-black/10">
             <X size={24} />
           </button>
         </div>
@@ -149,7 +169,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                     <Camera size={40} />
                  </div>
                  <p className="text-brand-900 font-bold text-lg">Tap to Scan</p>
-                 <p className="text-brand-600 text-sm mt-1">Food, Labels, Skin, or <span className="font-bold">Desk Setup</span></p>
+                 <p className="text-brand-600 text-sm mt-1">Food, Medicine, Skin, or <span className="font-bold">Desk Setup</span></p>
               </div>
               
               <div className="mt-8 grid grid-cols-2 gap-4 w-full max-w-lg">
@@ -159,9 +179,9 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                      <p className="text-xs text-gray-500">Detects harmful additives</p>
                  </div>
                  <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100 hover:shadow-md transition">
-                     <Monitor size={20} className="text-purple-500 mb-2"/>
-                     <h4 className="font-bold text-gray-800 text-sm">Desk Roast</h4>
-                     <p className="text-xs text-gray-500">Ergonomic analysis</p>
+                     <Pill size={20} className="text-purple-500 mb-2"/>
+                     <h4 className="font-bold text-gray-800 text-sm">Medicine ID</h4>
+                     <p className="text-xs text-gray-500">Identify pills & warnings</p>
                  </div>
                  <div className="bg-white p-4 rounded-xl shadow-sm text-left border border-gray-100 hover:shadow-md transition">
                      <Flame size={20} className="text-orange-500 mb-2"/>
@@ -206,7 +226,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                             <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
                                 <div className="bg-gradient-to-r from-brand-400 to-brand-600 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                             </div>
-                            <p className="text-gray-400 text-xs mt-4 text-center">Checking 150+ additives, macros, and ergonomics.</p>
+                            <p className="text-gray-400 text-xs mt-4 text-center">Checking 150+ additives, macros, medicine labels, and ergonomics.</p>
                         </div>
                     )}
                     
@@ -243,12 +263,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
 
                     {/* Tabs */}
                     <div className="flex border-b bg-white overflow-x-auto no-scrollbar">
-                        {[
-                            { id: 'OVERVIEW', label: 'Overview', icon: Info },
-                            { id: 'INGREDIENTS', label: 'Ingredients', icon: List },
-                            { id: 'MACROS', label: 'Nutrition', icon: PieChartIcon },
-                            { id: 'RECIPES', label: 'Recipes', icon: ChefHat },
-                        ].map(tab => (
+                        {tabs.map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as Tab)}
@@ -337,6 +352,36 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {activeTab === 'MEDICINE' && result.medicineDetails && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                    <h5 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Drug Information</h5>
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase font-bold">Dosage</p>
+                                            <p className="text-xl font-bold text-gray-900">{result.medicineDetails.dosage || 'See label'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 uppercase font-bold">Active Ingredient</p>
+                                            <p className="text-lg font-bold text-brand-600">{result.medicineDetails.activeIngredients?.join(', ') || 'Unknown'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-orange-50 p-6 rounded-xl border border-orange-100">
+                                    <h5 className="text-orange-800 font-bold flex items-center gap-2 mb-3"><AlertTriangle size={18}/> Warnings & Side Effects</h5>
+                                    <ul className="space-y-2">
+                                        {result.medicineDetails.warnings?.map((w, i) => (
+                                            <li key={i} className="text-sm text-orange-800 font-medium">• {w}</li>
+                                        ))}
+                                        {result.medicineDetails.sideEffects?.map((s, i) => (
+                                            <li key={`s-${i}`} className="text-sm text-orange-700">• {s}</li>
+                                        ))}
+                                    </ul>
+                                </div>
                             </div>
                         )}
 
@@ -463,7 +508,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                     </div>
                     
                     {/* Action Footer */}
-                    <div className="p-4 bg-white border-t flex gap-3">
+                    <div className="p-4 bg-white border-t flex gap-3 safe-bottom">
                          <button onClick={onClose} className="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition">
                              Close
                          </button>
