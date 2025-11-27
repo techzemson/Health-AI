@@ -209,8 +209,8 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
           {/* Analysis View */}
           {(image || result) && (
              <div className="flex flex-col md:flex-row h-full min-h-0">
-                {/* Image Side - Fixed width on Desktop for expanded content area */}
-                <div className={`bg-gray-900 flex flex-col items-center justify-center relative shrink-0 md:w-80 md:h-full transition-all duration-300 ${result ? 'h-48' : 'flex-1 min-h-[300px]'}`}>
+                {/* Image Side - Shrink on mobile to show content */}
+                <div className={`bg-gray-900 flex flex-col items-center justify-center relative shrink-0 md:w-80 md:h-full transition-all duration-300 ${result ? 'h-48 md:h-full' : 'flex-1 min-h-[300px]'}`}>
                     <img src={image!} alt="Scan" className="w-full h-full object-cover opacity-80" />
                     
                     {analyzing && (
@@ -244,8 +244,8 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                 {result && (
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-50">
                     
-                    {/* Verdict Banner */}
-                    <div className={`p-4 md:p-6 border-b flex justify-between items-center ${getStatusColor(result.recommendation)} bg-opacity-20 shrink-0`}>
+                    {/* Verdict Banner - Compact on mobile */}
+                    <div className={`p-4 border-b flex justify-between items-center ${getStatusColor(result.recommendation)} bg-opacity-20 shrink-0`}>
                         <div className="flex items-center gap-3">
                              {result.recommendation === 'BUY' && <CheckCircle className="w-8 h-8 md:w-10 md:h-10"/>}
                              {result.recommendation === 'AVOID' && <ShieldAlert className="w-8 h-8 md:w-10 md:h-10"/>}
@@ -274,7 +274,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                         ))}
                     </div>
 
-                    {/* Tab Content */}
+                    {/* Tab Content - Expanded Area */}
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
                         
                         {activeTab === 'OVERVIEW' && (

@@ -10,7 +10,8 @@ export enum AppView {
   HISTORY = 'HISTORY',
   PROGRESS_PHOTOS = 'PROGRESS_PHOTOS',
   CALCULATORS = 'CALCULATORS',
-  CHAT = 'CHAT'
+  CHAT = 'CHAT',
+  MEDICAL_ID = 'MEDICAL_ID'
 }
 
 export enum Gender {
@@ -27,6 +28,8 @@ export enum ActivityLevel {
   VERY_ACTIVE = 1.9
 }
 
+export type UnitSystem = 'METRIC' | 'IMPERIAL';
+
 export type CalculatorType = 
   | 'BMI' 
   | 'BODY_FAT' 
@@ -39,7 +42,20 @@ export type CalculatorType =
   | 'WHR' 
   | 'ORM' 
   | 'PREGNANCY' 
-  | 'BREATH';
+  | 'BREATH'
+  | 'SLEEP_DEBT'
+  | 'SMOKING'
+  | 'ALCOHOL';
+
+export interface CalculatorResult {
+  value: number | string;
+  unit: string;
+  category?: string;
+  color?: string;
+  chartData?: { name: string; value: number; fill: string }[];
+  actionPoints?: string[];
+  verdict?: string;
+}
 
 export interface UserProfile {
   name: string;
@@ -57,6 +73,8 @@ export interface UserProfile {
   xp: number;
   level: number;
   badges: string[];
+  bloodType?: string;
+  emergencyContact?: string;
 }
 
 export interface DailyLog {
