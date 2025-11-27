@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Utensils, ScanLine, Activity, MessageSquare, 
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
-  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart as PieChartIcon, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones, Bot, MessageCircle, Cigarette, Wine, CloudMoon, Stethoscope, ChefHat, FileHeart
+  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart as PieChartIcon, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones, Bot, MessageCircle, Cigarette, Wine, CloudMoon, Stethoscope, ChefHat, FileHeart, Edit2, Save, RefreshCw, Loader2, Music
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
@@ -101,6 +101,7 @@ const App: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
   const [showScanner, setShowScanner] = useState(false);
   const [dailyPlan, setDailyPlan] = useState<{meal: MealPlan | null, workout: WorkoutPlan | null}>({meal: null, workout: null});
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -120,8 +121,9 @@ const App: React.FC = () => {
   const [showLogSuccess, setShowLogSuccess] = useState(false);
   const [eyeTimerActive, setEyeTimerActive] = useState(false);
   const [eyeTimerCount, setEyeTimerCount] = useState(20 * 60); // 20 minutes in seconds
-  const [fastingStartTime, setFastingStartTime] = useState<Date | null>(null);
-  
+  const [isEditingMedicalID, setIsEditingMedicalID] = useState(false);
+  const [tempMedicalID, setTempMedicalID] = useState<Partial<UserProfile>>({});
+
   // Pantry Chef State
   const [pantryInput, setPantryInput] = useState("");
   const [pantryRecipe, setPantryRecipe] = useState("");
@@ -147,6 +149,7 @@ const App: React.FC = () => {
   const [lmpDate, setLmpDate] = useState("");
   const [breathTimer, setBreathTimer] = useState(0);
   const [isBreathHolding, setIsBreathHolding] = useState(false);
+  const [showBreathingModal, setShowBreathingModal] = useState(false);
   const [smokingStats, setSmokingStats] = useState({ cigsPerDay: 10, costPerPack: 10, yearsSmoked: 5 });
   const [alcoholStats, setAlcoholStats] = useState({ drinksPerWeek: 5, abv: 5, volume: 330 }); // beer defaults
   const [sleepStats, setSleepStats] = useState({ actualSleep: 6, neededSleep: 8 });
@@ -154,7 +157,7 @@ const App: React.FC = () => {
   const [calculatedResult, setCalculatedResult] = useState<CalculatorResult | null>(null);
 
   // Tracker View tabs
-  const [trackerTab, setTrackerTab] = useState<'TOOLS' | 'CYCLE' | 'PANTRY'>('TOOLS');
+  const [trackerTab, setTrackerTab] = useState<'MENU' | 'CYCLE' | 'PANTRY'>('MENU');
 
   // Initialize Data
   useEffect(() => {
@@ -231,6 +234,7 @@ const App: React.FC = () => {
   };
 
   const handleGeneratePlan = async () => {
+    setIsGeneratingPlan(true);
     try {
       const plan = await generateDailyPlan(profile);
       setDailyPlan({ meal: plan.mealPlan, workout: plan.workoutPlan });
@@ -239,6 +243,8 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsGeneratingPlan(false);
     }
   };
 
@@ -300,18 +306,6 @@ const App: React.FC = () => {
       setShoppingList(prev => prev.map((item, i) => i === idx ? { ...item, checked: !item.checked } : item));
   };
 
-  const logSymptom = () => {
-      if (!symptomText.trim()) return;
-      setShowLogSuccess(true);
-      setSymptomText("");
-      setTimeout(() => setShowLogSuccess(false), 2000);
-      setProfile(p => ({ ...p, xp: p.xp + 10 }));
-  };
-
-  const addSymptomTag = (sym: string) => {
-      setSymptomText(prev => prev ? `${prev}, ${sym}` : sym);
-  };
-
   const incrementWater = () => {
       setWater(w => {
           const next = Math.min(w + 1, 8);
@@ -338,6 +332,11 @@ const App: React.FC = () => {
       } finally {
           setIsGeneratingRecipe(false);
       }
+  };
+
+  const handleSaveMedicalID = () => {
+      setProfile(prev => ({ ...prev, ...tempMedicalID }));
+      setIsEditingMedicalID(false);
   };
 
   // --- CALCULATOR LOGIC ---
@@ -772,41 +771,196 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* --- VIEW: MEDICAL ID --- */}
-        {view === AppView.MEDICAL_ID && (
-            <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border-t-8 border-red-500 overflow-hidden animate-in zoom-in-95">
-                <div className="p-8 text-center">
-                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
-                        <Stethoscope size={40} />
+        {/* --- VIEW: DAY PLANNER --- */}
+        {view === AppView.PLANNER && (
+            <div className="space-y-6 animate-in fade-in">
+                <div className="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 className="text-2xl font-bold">Daily Planner</h2>
+                        <p className="text-gray-500 text-sm">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                     </div>
-                    <h2 className="text-2xl font-black text-gray-900 mb-1">Medical ID</h2>
-                    <p className="text-gray-500 text-sm">Emergency Card</p>
+                    <button 
+                        onClick={handleGeneratePlan}
+                        disabled={isGeneratingPlan}
+                        className="flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100 font-bold transition text-sm"
+                    >
+                        {isGeneratingPlan ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                        Regenerate Plan
+                    </button>
                 </div>
-                <div className="p-6 bg-gray-50 space-y-4">
-                    <div className="flex justify-between border-b pb-2">
-                        <span className="text-gray-500 font-bold text-sm">Name</span>
-                        <span className="font-bold text-gray-900">{profile.name}</span>
+
+                <div className="grid md:grid-cols-3 gap-8">
+                    {/* Meal Timeline */}
+                    <div className="md:col-span-2 space-y-6">
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                             <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><Utensils size={20} className="text-orange-500"/> Meal Schedule</h3>
+                             {dailyPlan.meal ? (
+                                 <div className="space-y-8 relative before:absolute before:inset-y-0 before:left-[15px] before:w-0.5 before:bg-gray-100">
+                                     {[
+                                         { label: 'Breakfast', time: '8:00 AM', color: 'bg-yellow-100 text-yellow-700', content: dailyPlan.meal.breakfast },
+                                         { label: 'Lunch', time: '1:00 PM', color: 'bg-green-100 text-green-700', content: dailyPlan.meal.lunch },
+                                         { label: 'Snack', time: '4:00 PM', color: 'bg-purple-100 text-purple-700', content: dailyPlan.meal.snacks },
+                                         { label: 'Dinner', time: '8:00 PM', color: 'bg-blue-100 text-blue-700', content: dailyPlan.meal.dinner },
+                                     ].map((meal, idx) => (
+                                         <div key={idx} className="relative pl-10">
+                                             <div className={`absolute left-0 top-1 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold z-10 ${meal.color.split(' ')[0]}`}>
+                                                 {idx + 1}
+                                             </div>
+                                             <div className="flex justify-between items-start mb-1">
+                                                <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${meal.color}`}>{meal.label}</span>
+                                                <span className="text-xs text-gray-400 font-medium">{meal.time}</span>
+                                             </div>
+                                             <p className="text-gray-800 text-sm leading-relaxed">{meal.content}</p>
+                                         </div>
+                                     ))}
+                                 </div>
+                             ) : (
+                                 <div className="text-center py-12 text-gray-400">Generatin plan...</div>
+                             )}
+                        </div>
+
+                        {/* Workout Card */}
+                        {dailyPlan.workout && (
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="font-bold text-lg flex items-center gap-2"><Zap size={20} className="text-yellow-500"/> Workout Plan</h3>
+                                    <span className="text-sm font-bold bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full">{dailyPlan.workout.duration} mins</span>
+                                </div>
+                                <h4 className="font-bold text-gray-900 mb-2">{dailyPlan.workout.type}</h4>
+                                <div className="space-y-3">
+                                    {dailyPlan.workout.exercises.map((ex, i) => (
+                                        <div key={i} className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl">
+                                            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-gray-500 text-xs shadow-sm">{i+1}</div>
+                                            <div className="flex-1">
+                                                <p className="font-bold text-sm text-gray-800">{ex.name}</p>
+                                                <p className="text-xs text-gray-500">{ex.description}</p>
+                                            </div>
+                                            <span className="text-xs font-bold text-gray-400 whitespace-nowrap">{ex.duration}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button onClick={startWorkout} className="mt-6 w-full py-3 bg-brand-600 text-white font-bold rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition flex items-center justify-center gap-2">
+                                    <Play size={18} /> Start Workout
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    <div className="flex justify-between border-b pb-2">
-                        <span className="text-gray-500 font-bold text-sm">Blood Type</span>
-                        <span className="font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded text-sm">{profile.bloodType}</span>
+
+                    {/* Shopping List */}
+                    <div>
+                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 h-full">
+                             <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><ShoppingCart size={20} className="text-teal-500"/> Shopping List</h3>
+                             <div className="space-y-2">
+                                 {shoppingList.map((item, idx) => (
+                                     <div 
+                                        key={idx} 
+                                        onClick={() => toggleShoppingItem(idx)}
+                                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition ${item.checked ? 'bg-gray-50 opacity-50' : 'hover:bg-gray-50'}`}
+                                     >
+                                         <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${item.checked ? 'bg-teal-500 border-teal-500' : 'border-gray-300'}`}>
+                                             {item.checked && <CheckCircle2 size={12} className="text-white" />}
+                                         </div>
+                                         <span className={`text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-700'}`}>{item.name}</span>
+                                     </div>
+                                 ))}
+                                 {shoppingList.length === 0 && <p className="text-gray-400 text-sm text-center py-4">List empty</p>}
+                             </div>
+                         </div>
                     </div>
-                    <div className="flex justify-between border-b pb-2">
-                        <span className="text-gray-500 font-bold text-sm">Allergies</span>
-                        <span className="font-bold text-gray-900">{profile.allergies.join(', ') || 'None'}</span>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                        <span className="text-gray-500 font-bold text-sm">Emergency Contact</span>
-                        <a href={`tel:${profile.emergencyContact}`} className="font-bold text-brand-600 hover:underline">{profile.emergencyContact}</a>
-                    </div>
-                    <div className="flex justify-between border-b pb-2">
-                        <span className="text-gray-500 font-bold text-sm">Age/Gender</span>
-                        <span className="font-bold text-gray-900">{profile.age} / {profile.gender}</span>
-                    </div>
-                    <div className="mt-6">
-                        <button className="w-full py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg hover:bg-red-600 transition">
-                            Share Medical ID
-                        </button>
+                </div>
+            </div>
+        )}
+
+        {/* --- VIEW: MEDICAL ID (UPGRADED) --- */}
+        {view === AppView.MEDICAL_ID && (
+            <div className="max-w-md mx-auto animate-in zoom-in-95">
+                <div className="bg-white rounded-3xl shadow-xl overflow-hidden relative">
+                    {/* Header Strip */}
+                    <div className="h-4 bg-red-500 w-full"></div>
+                    
+                    <div className="p-8">
+                        <div className="flex justify-between items-start mb-6">
+                             <div>
+                                 <h2 className="text-2xl font-black text-gray-900">Medical ID</h2>
+                                 <p className="text-red-500 font-bold text-xs uppercase tracking-wider">Emergency Card</p>
+                             </div>
+                             <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+                                <Stethoscope size={24} />
+                             </div>
+                        </div>
+
+                        {isEditingMedicalID ? (
+                             <div className="space-y-4">
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500">Full Name</label>
+                                     <input className="w-full p-2 bg-gray-50 rounded-lg text-sm font-bold" defaultValue={profile.name} onChange={e => setTempMedicalID({...tempMedicalID, name: e.target.value})} />
+                                 </div>
+                                 <div className="grid grid-cols-2 gap-4">
+                                     <div>
+                                         <label className="text-xs font-bold text-gray-500">Blood Type</label>
+                                         <input className="w-full p-2 bg-gray-50 rounded-lg text-sm font-bold" defaultValue={profile.bloodType} onChange={e => setTempMedicalID({...tempMedicalID, bloodType: e.target.value})} />
+                                     </div>
+                                     <div>
+                                         <label className="text-xs font-bold text-gray-500">Age</label>
+                                         <input className="w-full p-2 bg-gray-50 rounded-lg text-sm font-bold" type="number" defaultValue={profile.age} onChange={e => setTempMedicalID({...tempMedicalID, age: parseInt(e.target.value)})} />
+                                     </div>
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500">Allergies (comma separated)</label>
+                                     <input className="w-full p-2 bg-gray-50 rounded-lg text-sm font-bold" defaultValue={profile.allergies.join(', ')} onChange={e => setTempMedicalID({...tempMedicalID, allergies: e.target.value.split(',').map(s => s.trim())})} />
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500">Emergency Contact</label>
+                                     <input className="w-full p-2 bg-gray-50 rounded-lg text-sm font-bold" defaultValue={profile.emergencyContact} onChange={e => setTempMedicalID({...tempMedicalID, emergencyContact: e.target.value})} />
+                                 </div>
+                                 <button onClick={handleSaveMedicalID} className="w-full py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg mt-2 flex items-center justify-center gap-2">
+                                     <Save size={18} /> Save Card
+                                 </button>
+                             </div>
+                        ) : (
+                             <div className="space-y-5">
+                                <div className="flex justify-between border-b pb-3 border-gray-100">
+                                    <span className="text-gray-400 font-bold text-xs uppercase">Name</span>
+                                    <span className="font-bold text-gray-900 text-lg">{profile.name}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 pb-3 border-b border-gray-100">
+                                    <div>
+                                        <span className="text-gray-400 font-bold text-xs uppercase block mb-1">Blood Type</span>
+                                        <span className="font-black text-white bg-red-500 px-3 py-1 rounded-lg text-sm">{profile.bloodType}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-gray-400 font-bold text-xs uppercase block mb-1">DOB / Age</span>
+                                        <span className="font-bold text-gray-900">{profile.age} yrs</span>
+                                    </div>
+                                </div>
+                                <div className="pb-3 border-b border-gray-100">
+                                    <span className="text-gray-400 font-bold text-xs uppercase block mb-1">Allergies & Conditions</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {profile.allergies.length > 0 ? profile.allergies.map(a => (
+                                            <span key={a} className="bg-red-50 text-red-600 px-2 py-1 rounded text-xs font-bold border border-red-100">{a}</span>
+                                        )) : <span className="text-gray-500 italic text-sm">None listed</span>}
+                                        {profile.healthIssues.map(h => (
+                                             <span key={h} className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{h}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400 font-bold text-xs uppercase block mb-1">Emergency Contact</span>
+                                    <a href={`tel:${profile.emergencyContact}`} className="font-bold text-red-600 text-lg hover:underline flex items-center gap-2">
+                                        {profile.emergencyContact}
+                                    </a>
+                                </div>
+
+                                <div className="pt-4 flex gap-3">
+                                    <button onClick={() => { setTempMedicalID(profile); setIsEditingMedicalID(true); }} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition flex items-center justify-center gap-2">
+                                        <Edit2 size={16} /> Edit
+                                    </button>
+                                    <button className="flex-1 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition flex items-center justify-center gap-2">
+                                        <Share2 size={16} /> Share
+                                    </button>
+                                </div>
+                             </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -922,30 +1076,56 @@ const App: React.FC = () => {
             </div>
         )}
 
-         {/* --- VIEW: WELLNESS TOOLS --- */}
+         {/* --- VIEW: WELLNESS TOOLS (REDESIGNED) --- */}
          {view === AppView.TRACKER && (
              <div className="space-y-8 animate-in fade-in">
-                 <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold">Wellness Tools</h2>
-                    <div className="bg-white p-1 rounded-xl shadow-sm border border-gray-200 inline-flex">
-                        <button onClick={() => setTrackerTab('TOOLS')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${trackerTab === 'TOOLS' ? 'bg-brand-100 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>Trackers</button>
-                        <button onClick={() => setTrackerTab('CYCLE')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${trackerTab === 'CYCLE' ? 'bg-brand-100 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>Cycle</button>
-                        <button onClick={() => setTrackerTab('PANTRY')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${trackerTab === 'PANTRY' ? 'bg-brand-100 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>Pantry Chef</button>
-                    </div>
-                 </div>
+                 
+                 {/* NAVIGATION / BREADCRUMBS */}
+                 {trackerTab !== 'MENU' && (
+                     <button onClick={() => setTrackerTab('MENU')} className="flex items-center gap-2 text-gray-500 font-bold hover:text-brand-600 mb-4">
+                         <ChevronRight className="rotate-180" size={20}/> Back to Tools
+                     </button>
+                 )}
 
-                 {/* TAB: TOOLS */}
-                 {trackerTab === 'TOOLS' && (
-                     <div className="grid md:grid-cols-2 gap-6">
-                         {/* Existing Sleep/Fasting/Breathing tools... */}
-                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
-                             <div className="flex justify-between items-start mb-4">
-                                 <div><h3 className="font-bold text-indigo-900 flex items-center gap-2"><Moon size={20}/> Deep Sleep Aid</h3><p className="text-xs text-indigo-500">Brown Noise Generator</p></div>
-                                 <button onClick={toggleBrownNoise} className={`p-3 rounded-full transition ${isPlayingNoise ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-400'}`}>{isPlayingNoise ? <VolumeX size={24}/> : <Headphones size={24}/>}</button>
-                             </div>
-                         </div>
-                         {/* ... Other trackers */}
-                     </div>
+                 {/* GRID MENU */}
+                 {trackerTab === 'MENU' && (
+                     <>
+                        <div className="mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900">Wellness App Store</h2>
+                            <p className="text-gray-500">Launch specialized tools for holistic health.</p>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            {[
+                                { id: 'CYCLE', label: 'Cycle Sync', icon: HeartPulse, color: 'text-pink-500 bg-pink-50', desc: 'Menstrual tracking & nutrition' },
+                                { id: 'PANTRY', label: 'Pantry Chef', icon: ChefHat, color: 'text-orange-500 bg-orange-50', desc: 'AI recipes from ingredients' },
+                                { id: 'SLEEP', label: 'Sleep Aid', icon: Moon, color: 'text-indigo-500 bg-indigo-50', desc: 'Brown noise generator' },
+                                { id: 'BREATH', label: 'Breathing Box', icon: Wind, color: 'text-teal-500 bg-teal-50', desc: 'Stress relief timer' },
+                                { id: 'SYMPTOM', label: 'Symptom Log', icon: Activity, color: 'text-blue-500 bg-blue-50', desc: 'Track daily health issues' },
+                                { id: 'FASTING', label: 'Fasting Timer', icon: Timer, color: 'text-purple-500 bg-purple-50', desc: '16:8 Intermittent Fasting' },
+                            ].map(tool => (
+                                <button 
+                                    key={tool.id}
+                                    onClick={() => {
+                                        if (tool.id === 'BREATH') setShowBreathingModal(true);
+                                        else if (tool.id === 'SLEEP') toggleBrownNoise();
+                                        else setTrackerTab(tool.id as any);
+                                    }}
+                                    className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-1 transition text-left group"
+                                >
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${tool.color} group-hover:scale-110 transition`}>
+                                        <tool.icon size={24} />
+                                    </div>
+                                    <h3 className="font-bold text-gray-900 mb-1">{tool.label}</h3>
+                                    <p className="text-xs text-gray-500 leading-relaxed">{tool.desc}</p>
+                                    {tool.id === 'SLEEP' && isPlayingNoise && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs font-bold text-indigo-500 animate-pulse">
+                                            <VolumeX size={12}/> Playing...
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                     </>
                  )}
                  
                  {/* TAB: CYCLE TRACKER */}
@@ -1126,6 +1306,31 @@ const App: React.FC = () => {
             onSave={handleSaveScan} 
             initialData={selectedScan}
         />
+      )}
+
+      {/* Breathing Modal */}
+      {showBreathingModal && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center relative">
+                   <button onClick={() => { setShowBreathingModal(false); setIsBreathHolding(false); }} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><XIcon size={24}/></button>
+                   <h3 className="text-xl font-bold text-teal-800 mb-2">4-7-8 Breathing</h3>
+                   <p className="text-gray-500 text-sm mb-8">Inhale for 4s, Hold for 7s, Exhale for 8s.</p>
+                   
+                   <div className="relative w-48 h-48 mx-auto mb-8 flex items-center justify-center">
+                       <div className={`absolute inset-0 bg-teal-100 rounded-full ${isBreathHolding ? 'animate-ping opacity-20' : ''}`}></div>
+                       <div className={`w-32 h-32 bg-teal-500 rounded-full flex items-center justify-center text-white font-bold text-3xl shadow-lg shadow-teal-200 transition-all duration-[4000ms] ${isBreathHolding ? 'scale-125' : 'scale-100'}`}>
+                           {isBreathHolding ? '...' : 'Start'}
+                       </div>
+                   </div>
+                   
+                   <button 
+                    onClick={() => setIsBreathHolding(!isBreathHolding)}
+                    className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 transition"
+                   >
+                       {isBreathHolding ? 'Stop' : 'Begin Exercise'}
+                   </button>
+              </div>
+          </div>
       )}
     </div>
   );
