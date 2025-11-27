@@ -125,6 +125,7 @@ const App: React.FC = () => {
   // Pantry Chef State
   const [pantryInput, setPantryInput] = useState("");
   const [pantryRecipe, setPantryRecipe] = useState("");
+  const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
 
   // Sleep Sound Audio Context
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -325,14 +326,17 @@ const App: React.FC = () => {
   
   const generatePantryRecipe = async () => {
       if (!pantryInput) return;
-      setPantryRecipe("Thinking...");
+      setIsGeneratingRecipe(true);
+      setPantryRecipe("");
+      
       try {
-          // Simulate AI call for demo (would normally be Gemini)
-          setTimeout(() => {
-              setPantryRecipe(`Stir-Fry Bowl: Sauté your ${pantryInput} with garlic and soy sauce. Serve over rice or quinoa.`);
-          }, 1500);
+          const prompt = `Create a healthy, simple recipe using these ingredients: ${pantryInput}. Be concise. Format with bullet points.`;
+          const recipe = await chatWithAgent([], prompt);
+          setPantryRecipe(recipe);
       } catch (e) {
-          setPantryRecipe("Could not generate recipe.");
+          setPantryRecipe("Could not generate recipe. Please try again.");
+      } finally {
+          setIsGeneratingRecipe(false);
       }
   };
 
@@ -578,6 +582,27 @@ const App: React.FC = () => {
       SLEEP_DEBT: { title: "Sleep Debt", desc: "Calculate lost sleep over time.", icon: CloudMoon, color: "text-indigo-600 bg-indigo-50" },
       SMOKING: { title: "Smoking Cost", desc: "Financial cost of smoking cigarettes.", icon: Cigarette, color: "text-gray-700 bg-gray-100" },
       ALCOHOL: { title: "Alcohol Units", desc: "Track units against safe weekly limits.", icon: Wine, color: "text-purple-600 bg-purple-50" }
+  };
+
+  // Chat message rendering helper
+  const renderMessageText = (text: string) => {
+      // Very basic bold and bullet parsing
+      return text.split('\n').map((line, i) => {
+          if (line.trim().startsWith('* ') || line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+              return <li key={i} className="ml-4 list-disc pl-1 mb-1">{line.replace(/^[\*\-\•] /, '')}</li>
+          }
+          const parts = line.split(/(\*\*.*?\*\*)/g);
+          return (
+              <p key={i} className="mb-2">
+                  {parts.map((part, j) => {
+                      if (part.startsWith('**') && part.endsWith('**')) {
+                          return <strong key={j}>{part.slice(2, -2)}</strong>
+                      }
+                      return part;
+                  })}
+              </p>
+          );
+      });
   };
 
   return (
@@ -967,9 +992,13 @@ const App: React.FC = () => {
                              />
                              <button onClick={generatePantryRecipe} className="bg-orange-500 text-white px-6 rounded-xl font-bold hover:bg-orange-600 transition">Create</button>
                          </div>
+                         {isGeneratingRecipe && <div className="text-center text-orange-500 animate-pulse">Consulting the Chef...</div>}
                          {pantryRecipe && (
-                             <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 animate-in fade-in">
-                                 <p className="font-medium text-orange-900">{pantryRecipe}</p>
+                             <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 animate-in fade-in text-left">
+                                 <h4 className="font-bold text-orange-800 mb-2">Chef Suggests:</h4>
+                                 <div className="text-orange-900 text-sm leading-relaxed">
+                                     {renderMessageText(pantryRecipe)}
+                                 </div>
                              </div>
                          )}
                      </div>
@@ -977,10 +1006,86 @@ const App: React.FC = () => {
              </div>
          )}
          
-         {/* ... Chat, History views (unchanged logic, just re-rendered) ... */}
+         {/* --- VIEW: CHAT --- */}
          {view === AppView.CHAT && (
-             <div className="h-full flex items-center justify-center text-gray-400">Chat Component Loaded via previous logic...</div> 
-             /* Note: In full implementation, the Chat View code block is preserved here */
+             <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-40px)] flex flex-col bg-white md:rounded-3xl shadow-sm border border-gray-100 overflow-hidden relative">
+                 {/* Header */}
+                 <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                     <div className="flex items-center gap-3">
+                         <div className="p-2 bg-brand-100 text-brand-600 rounded-lg"><Bot size={20}/></div>
+                         <div>
+                             <h2 className="font-bold text-gray-900">Health Assistant</h2>
+                             <p className="text-xs text-gray-500 flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Online</p>
+                         </div>
+                     </div>
+                     <button onClick={stopAudio} className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition">Stop Audio</button>
+                 </div>
+                 
+                 {/* Messages */}
+                 <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                     {chatHistory.length === 0 && (
+                         <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-60">
+                             <Bot size={48} className="text-gray-300 mb-4"/>
+                             <h3 className="text-lg font-bold text-gray-500">How can I help you today?</h3>
+                             <div className="flex flex-wrap justify-center gap-2 mt-6">
+                                 {["Lose Weight Plan", "Cure Acidity", "Eye Strain Tips", "High Protein Veg Food"].map((prompt, i) => (
+                                     <button key={i} onClick={() => handleVoiceInput(prompt)} className="bg-white border border-gray-200 px-4 py-2 rounded-full text-sm hover:border-brand-300 hover:text-brand-600 transition shadow-sm">
+                                         {prompt}
+                                     </button>
+                                 ))}
+                             </div>
+                         </div>
+                     )}
+                     
+                     {chatHistory.map((msg, idx) => (
+                         <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                             <div className={`max-w-[85%] md:max-w-[70%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                                 msg.role === 'user' 
+                                 ? 'bg-brand-600 text-white rounded-br-none' 
+                                 : 'bg-white text-gray-800 border border-gray-100 rounded-bl-none'
+                             }`}>
+                                 {msg.role === 'model' ? (
+                                     <div className="space-y-1">{renderMessageText(msg.text)}</div>
+                                 ) : (
+                                     msg.text
+                                 )}
+                             </div>
+                         </div>
+                     ))}
+                     {isTyping && (
+                         <div className="flex justify-start">
+                             <div className="bg-white border border-gray-100 p-4 rounded-2xl rounded-bl-none shadow-sm flex gap-1">
+                                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></span>
+                                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></span>
+                             </div>
+                         </div>
+                     )}
+                     <div ref={chatEndRef} />
+                 </div>
+                 
+                 {/* Input Area */}
+                 <div className="p-4 bg-white border-t border-gray-100">
+                     <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-2xl border border-gray-200 focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100 transition">
+                         <VoiceAgent onSpeechResult={handleVoiceInput} />
+                         <input 
+                            type="text" 
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                            placeholder="Type your health question..."
+                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm p-2"
+                         />
+                         <button 
+                            onClick={handleSendChat}
+                            disabled={!chatInput.trim()}
+                            className="p-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                         >
+                             <Send size={18} />
+                         </button>
+                     </div>
+                 </div>
+             </div>
          )}
 
       </main>
