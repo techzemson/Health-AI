@@ -143,10 +143,10 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-0 md:p-4 overflow-y-auto backdrop-blur-md">
-      <div className="bg-white w-full max-w-4xl md:rounded-3xl h-full md:h-auto md:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-white w-full max-w-6xl md:rounded-3xl h-full md:h-auto md:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-brand-600 to-brand-teal text-white sticky top-0 z-10 safe-top">
+        <div className="p-4 border-b flex justify-between items-center bg-gradient-to-r from-brand-600 to-brand-teal text-white sticky top-0 z-10 safe-top flex-shrink-0">
           <h2 className="text-xl font-bold flex items-center gap-2">
             <Camera size={24} /> 
             {result ? 'Scan Results' : 'AI Health Scanner'}
@@ -157,10 +157,10 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-0 bg-slate-50">
+        <div className="flex-1 overflow-hidden p-0 bg-slate-50 flex flex-col min-h-0">
           
           {!image && (
-            <div className="flex flex-col items-center justify-center h-[600px] p-6 text-center">
+            <div className="flex flex-col items-center justify-center h-full overflow-y-auto p-6 text-center">
               <div 
                   className="w-full max-w-sm h-64 border-3 border-dashed border-brand-300 rounded-3xl bg-brand-50 hover:bg-brand-100 transition cursor-pointer flex flex-col items-center justify-center group"
                   onClick={() => fileInputRef.current?.click()}
@@ -208,9 +208,9 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
 
           {/* Analysis View */}
           {(image || result) && (
-             <div className="flex flex-col md:flex-row h-full">
-                {/* Image Side */}
-                <div className="md:w-1/3 bg-gray-900 flex flex-col items-center justify-center relative min-h-[300px] md:min-h-full">
+             <div className="flex flex-col md:flex-row h-full min-h-0">
+                {/* Image Side - Fixed width on Desktop for expanded content area */}
+                <div className={`bg-gray-900 flex flex-col items-center justify-center relative shrink-0 md:w-80 md:h-full transition-all duration-300 ${result ? 'h-48' : 'flex-1 min-h-[300px]'}`}>
                     <img src={image!} alt="Scan" className="w-full h-full object-cover opacity-80" />
                     
                     {analyzing && (
@@ -222,66 +222,66 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                 </svg>
                                 <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">{Math.round(progress)}%</span>
                             </div>
-                            <h3 className="text-white font-bold text-lg mb-2">Analyzing Health Impact...</h3>
+                            <h3 className="text-white font-bold text-lg mb-2">Analyzing...</h3>
                             <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
                                 <div className="bg-gradient-to-r from-brand-400 to-brand-600 h-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
                             </div>
-                            <p className="text-gray-400 text-xs mt-4 text-center">Checking 150+ additives, macros, medicine labels, and ergonomics.</p>
+                            <p className="text-gray-400 text-xs mt-4 text-center">Checking 150+ metrics...</p>
                         </div>
                     )}
                     
                     {result && !analyzing && (
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 text-white">
-                             <div className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-xs font-bold mb-2 uppercase tracking-wide">
+                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 text-white">
+                             <div className="inline-block px-2 py-0.5 bg-white/20 backdrop-blur-md rounded-lg text-[10px] font-bold mb-1 uppercase tracking-wide">
                                  {result.type}
                              </div>
-                             <h3 className="text-2xl font-bold leading-tight">{result.productName || 'Unknown Item'}</h3>
+                             <h3 className="text-lg font-bold leading-tight truncate">{result.productName || 'Unknown Item'}</h3>
                         </div>
                     )}
                 </div>
 
-                {/* Results Side */}
+                {/* Results Side - Flex Grow to take remaining space */}
                 {result && (
-                <div className="md:w-2/3 flex flex-col h-full overflow-hidden bg-slate-50">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-50">
                     
                     {/* Verdict Banner */}
-                    <div className={`p-6 border-b flex justify-between items-center ${getStatusColor(result.recommendation)} bg-opacity-20`}>
-                        <div className="flex items-center gap-4">
-                             {result.recommendation === 'BUY' && <CheckCircle className="w-10 h-10"/>}
-                             {result.recommendation === 'AVOID' && <ShieldAlert className="w-10 h-10"/>}
-                             {(result.recommendation === 'CONSULT_DOCTOR' || result.recommendation === 'FIX_SETUP') && <Activity className="w-10 h-10"/>}
+                    <div className={`p-4 md:p-6 border-b flex justify-between items-center ${getStatusColor(result.recommendation)} bg-opacity-20 shrink-0`}>
+                        <div className="flex items-center gap-3">
+                             {result.recommendation === 'BUY' && <CheckCircle className="w-8 h-8 md:w-10 md:h-10"/>}
+                             {result.recommendation === 'AVOID' && <ShieldAlert className="w-8 h-8 md:w-10 md:h-10"/>}
+                             {(result.recommendation === 'CONSULT_DOCTOR' || result.recommendation === 'FIX_SETUP') && <Activity className="w-8 h-8 md:w-10 md:h-10"/>}
                              <div>
-                                 <h4 className="font-black text-2xl tracking-tight">{result.recommendation?.replace('_', ' ')}</h4>
-                                 <p className="text-xs opacity-80 font-medium">AI Health Verdict</p>
+                                 <h4 className="font-black text-xl md:text-2xl tracking-tight">{result.recommendation?.replace('_', ' ')}</h4>
+                                 <p className="text-[10px] md:text-xs opacity-80 font-medium">AI Health Verdict</p>
                              </div>
                         </div>
-                        <div className="text-center bg-white/50 px-4 py-2 rounded-xl backdrop-blur-sm">
-                            <span className="block text-4xl font-black">{result.score}</span>
-                            <span className="text-[10px] font-bold uppercase opacity-60">Health Score</span>
+                        <div className="text-center bg-white/50 px-3 py-1.5 md:px-4 md:py-2 rounded-xl backdrop-blur-sm">
+                            <span className="block text-2xl md:text-4xl font-black">{result.score}</span>
+                            <span className="text-[8px] md:text-[10px] font-bold uppercase opacity-60">Health Score</span>
                         </div>
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex border-b bg-white overflow-x-auto no-scrollbar">
+                    <div className="flex border-b bg-white overflow-x-auto no-scrollbar shrink-0">
                         {tabs.map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as Tab)}
-                                className={`flex-1 min-w-[100px] py-4 flex items-center justify-center gap-2 text-sm font-bold transition border-b-2 whitespace-nowrap ${activeTab === tab.id ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+                                className={`flex-1 min-w-[90px] py-3 md:py-4 flex items-center justify-center gap-2 text-xs md:text-sm font-bold transition border-b-2 whitespace-nowrap ${activeTab === tab.id ? 'border-brand-600 text-brand-700 bg-brand-50/50' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
                             >
-                                <tab.icon size={16} /> {tab.label}
+                                <tab.icon size={14} className="md:w-4 md:h-4" /> {tab.label}
                             </button>
                         ))}
                     </div>
 
                     {/* Tab Content */}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
                         
                         {activeTab === 'OVERVIEW' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-                                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-                                    <h5 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">AI Analysis</h5>
-                                    <div className="text-gray-700 leading-relaxed text-lg">
+                                <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100">
+                                    <h5 className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 md:mb-3">AI Analysis</h5>
+                                    <div className="text-gray-700 leading-relaxed text-sm md:text-lg">
                                         {result.analysis?.split('\n').map((line, i) => (
                                             <p key={i} className="mb-2">{line}</p>
                                         ))}
@@ -295,9 +295,9 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                     {result.calories && (
                                         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center col-span-2 md:col-span-2">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">Burn It Off</span>
-                                            <div className="flex gap-6 items-center">
+                                            <div className="flex gap-4 md:gap-6 items-center">
                                                 <div className="text-center">
-                                                    <div className="text-orange-500 font-black text-xl flex items-center gap-1 justify-center">
+                                                    <div className="text-orange-500 font-black text-lg md:text-xl flex items-center gap-1 justify-center">
                                                         <Flame size={16} /> {result.calories}
                                                     </div>
                                                     <span className="text-[10px] text-gray-400 uppercase font-bold">Calories</span>
@@ -318,10 +318,10 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
 
                                 <div className="grid md:grid-cols-2 gap-4">
                                     <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-                                        <h5 className="text-green-800 font-bold flex items-center gap-2 mb-3"><CheckCircle size={16}/> The Good Stuff</h5>
+                                        <h5 className="text-green-800 font-bold flex items-center gap-2 mb-3 text-sm md:text-base"><CheckCircle size={16}/> The Good Stuff</h5>
                                         <ul className="space-y-2">
                                             {result.pros?.map((pro, i) => (
-                                                <li key={i} className="text-sm text-green-700 flex items-start gap-2">
+                                                <li key={i} className="text-xs md:text-sm text-green-700 flex items-start gap-2">
                                                     <span className="mt-1.5 w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></span>
                                                     {pro}
                                                 </li>
@@ -329,10 +329,10 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                         </ul>
                                     </div>
                                     <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-                                        <h5 className="text-red-800 font-bold flex items-center gap-2 mb-3"><AlertTriangle size={16}/> Potential Risks</h5>
+                                        <h5 className="text-red-800 font-bold flex items-center gap-2 mb-3 text-sm md:text-base"><AlertTriangle size={16}/> Potential Risks</h5>
                                         <ul className="space-y-2">
                                             {result.cons?.map((con, i) => (
-                                                <li key={i} className="text-sm text-red-700 flex items-start gap-2">
+                                                <li key={i} className="text-xs md:text-sm text-red-700 flex items-start gap-2">
                                                     <span className="mt-1.5 w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></span>
                                                     {con}
                                                 </li>
@@ -348,7 +348,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                             <h5 className="text-blue-800 font-bold text-sm">
                                                 {result.type === 'WORKSPACE' ? 'Ergonomic Tip' : 'Storage Tip'}
                                             </h5>
-                                            <p className="text-sm text-blue-700">{result.storageTips}</p>
+                                            <p className="text-xs md:text-sm text-blue-700">{result.storageTips}</p>
                                         </div>
                                     </div>
                                 )}
@@ -390,11 +390,11 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                                     {result.ingredients?.map((ing, i) => (
                                         <div key={i} className="p-4 border-b border-gray-100 last:border-0 flex items-start justify-between hover:bg-gray-50 transition">
-                                            <div>
-                                                <p className="font-bold text-gray-800">{ing.name}</p>
+                                            <div className="pr-4">
+                                                <p className="font-bold text-gray-800 text-sm">{ing.name}</p>
                                                 <p className="text-xs text-gray-500 mt-1">{ing.description}</p>
                                             </div>
-                                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${
+                                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase shrink-0 ${
                                                 ing.riskLevel === 'SAFE' ? 'bg-green-100 text-green-700' : 
                                                 ing.riskLevel === 'MODERATE' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
                                             }`}>
@@ -466,7 +466,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                  {result.recipes && result.recipes.length > 0 ? result.recipes.map((recipe, i) => (
                                      <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
                                          <div>
-                                             <h5 className="font-bold text-gray-800">{recipe.name}</h5>
+                                             <h5 className="font-bold text-gray-800 text-sm md:text-base">{recipe.name}</h5>
                                              <div className="flex gap-3 mt-1">
                                                  <span className="text-xs text-gray-500 flex items-center gap-1"><Clock size={12}/> {recipe.time}</span>
                                                  <span className="text-xs text-gray-500 flex items-center gap-1"><Activity size={12}/> {recipe.difficulty}</span>
@@ -494,10 +494,10 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                                     {result.affiliateLinks.map((link, idx) => (
                                     <a key={idx} href={link.url} target="_blank" rel="noreferrer" 
                                         className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-brand-300 transition group">
-                                        <span className="font-medium text-gray-700 group-hover:text-brand-600">{link.name}</span>
+                                        <span className="font-medium text-gray-700 group-hover:text-brand-600 text-sm">{link.name}</span>
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-bold text-gray-900">{link.price}</span>
-                                            <span className="bg-brand-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm shadow-brand-200">Buy Now</span>
+                                            <span className="bg-brand-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm shadow-brand-200 whitespace-nowrap">Buy Now</span>
                                         </div>
                                     </a>
                                     ))}
@@ -508,7 +508,7 @@ const Scanner: React.FC<ScannerProps> = ({ userProfile, onClose, onSave, initial
                     </div>
                     
                     {/* Action Footer */}
-                    <div className="p-4 bg-white border-t flex gap-3 safe-bottom">
+                    <div className="p-4 bg-white border-t flex gap-3 safe-bottom shrink-0">
                          <button onClick={onClose} className="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition">
                              Close
                          </button>

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Utensils, ScanLine, Activity, MessageSquare, 
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
-  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones
+  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones, Bot
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -85,9 +85,9 @@ const VoiceAgent = ({ onSpeechResult }: { onSpeechResult: (text: string) => void
   return (
     <button 
       onClick={toggleListen}
-      className={`fixed bottom-24 right-6 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all transform hover:scale-105 z-40 ${listening ? 'bg-red-500 animate-pulse' : 'bg-brand-600'}`}
+      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-md active:scale-95 ${listening ? 'bg-red-500 animate-pulse' : 'bg-brand-600'}`}
     >
-      {listening ? <MicOff className="text-white" /> : <Mic className="text-white" />}
+      {listening ? <MicOff className="text-white" size={20} /> : <Mic className="text-white" size={20} />}
     </button>
   );
 };
@@ -99,10 +99,10 @@ const App: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile>(INITIAL_PROFILE);
   const [showScanner, setShowScanner] = useState(false);
   const [dailyPlan, setDailyPlan] = useState<{meal: MealPlan | null, workout: WorkoutPlan | null}>({meal: null, workout: null});
-  const [loadingPlan, setLoadingPlan] = useState(false);
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   
   // New State Features
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
@@ -119,7 +119,6 @@ const App: React.FC = () => {
   const [eyeTimerActive, setEyeTimerActive] = useState(false);
   const [eyeTimerCount, setEyeTimerCount] = useState(20 * 60); // 20 minutes in seconds
   const [fastingStartTime, setFastingStartTime] = useState<Date | null>(null);
-  const [stoolType, setStoolType] = useState<number | null>(null);
 
   // Sleep Sound Audio Context
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -145,6 +144,11 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!dailyPlan.meal) handleGeneratePlan();
   }, []);
+
+  // Scroll to bottom of chat
+  useEffect(() => {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory, isTyping]);
 
   // Workout Timer Effect
   useEffect(() => {
@@ -192,6 +196,7 @@ const App: React.FC = () => {
       const bufferSize = 4096;
       const brownNoise = ctx.createScriptProcessor(bufferSize, 1, 1);
       
+      let lastOut = 0;
       brownNoise.onaudioprocess = function(e) {
           const output = e.outputBuffer.getChannelData(0);
           for (let i = 0; i < bufferSize; i++) {
@@ -202,7 +207,6 @@ const App: React.FC = () => {
           }
       };
       
-      let lastOut = 0;
       brownNoise.connect(ctx.destination);
       
       audioCtxRef.current = ctx;
@@ -211,7 +215,6 @@ const App: React.FC = () => {
   };
 
   const handleGeneratePlan = async () => {
-    setLoadingPlan(true);
     try {
       const plan = await generateDailyPlan(profile);
       setDailyPlan({ meal: plan.mealPlan, workout: plan.workoutPlan });
@@ -220,8 +223,6 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoadingPlan(false);
     }
   };
 
@@ -230,27 +231,10 @@ const App: React.FC = () => {
     setProfile(p => ({ ...p, xp: p.xp + 50 }));
   };
 
-  const handleAddProgressPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              const newPhoto: ProgressPhoto = {
-                  id: Date.now().toString(),
-                  date: new Date().toLocaleDateString(),
-                  image: reader.result as string,
-                  note: `Weight: ${profile.weight}kg`
-              };
-              setProgressPhotos(prev => [newPhoto, ...prev]);
-              setProfile(p => ({ ...p, xp: p.xp + 100 }));
-          };
-          reader.readAsDataURL(file);
-      }
-  };
-
   const processChatResponse = async (text: string) => {
     const newHistory = [...chatHistory, { role: 'user' as const, text }];
     setChatHistory(newHistory);
+    setIsTyping(true);
     
     const apiHistory = newHistory.slice(0, -1).map(h => ({
       role: h.role,
@@ -259,6 +243,7 @@ const App: React.FC = () => {
 
     try {
       const response = await chatWithAgent(apiHistory, text);
+      setIsTyping(false);
       setChatHistory([...newHistory, { role: 'model', text: response }]);
       
       // Stop previous audio if any
@@ -266,12 +251,12 @@ const App: React.FC = () => {
       const utterance = new SpeechSynthesisUtterance(response);
       window.speechSynthesis.speak(utterance);
     } catch (e) {
+      setIsTyping(false);
       setChatHistory([...newHistory, { role: 'model', text: "Sorry, I couldn't process that right now. Please try again." }]);
     }
   };
 
   const handleVoiceInput = async (text: string) => {
-    setIsChatOpen(true);
     processChatResponse(text);
   };
 
@@ -416,11 +401,11 @@ const App: React.FC = () => {
         <nav className="flex-1 px-4 space-y-1.5 mt-4">
           {[
             { id: AppView.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
+            { id: AppView.CHAT, icon: MessageSquare, label: 'AI Assistant' },
             { id: AppView.PLANNER, icon: Utensils, label: 'Day Planner' },
             { id: AppView.TRACKER, icon: Activity, label: 'Wellness Tools' },
             { id: AppView.CALCULATORS, icon: Calculator, label: 'Calculators' },
             { id: AppView.HISTORY, icon: History, label: 'History' },
-            { id: AppView.PROGRESS_PHOTOS, icon: Camera, label: 'Body Progress' },
             { id: AppView.PROFILE, icon: UserIcon, label: 'My Profile' },
           ].map((item) => (
             <button
@@ -472,14 +457,14 @@ const App: React.FC = () => {
                 <p className="text-gray-500 mt-2 text-lg">You're on a <span className="font-bold text-brand-600">5-day streak!</span> Keep the momentum going.</p>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  <button onClick={() => setView(AppView.CHAT)} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-blue-100 text-blue-600">
+                      <Bot size={16} /> Ask AI
+                  </button>
                   <button onClick={() => startWorkout()} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-orange-100 text-orange-600">
                       <Zap size={16} /> Quick Workout
                   </button>
                   <button onClick={toggleBrownNoise} className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 ${isPlayingNoise ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-indigo-100 text-indigo-600'}`}>
                       {isPlayingNoise ? <VolumeX size={16}/> : <Headphones size={16}/>} {isPlayingNoise ? 'Stop Audio' : 'Sleep Aid'}
-                  </button>
-                  <button onClick={() => { setSelectedScan(null); setShowScanner(true); }} className="flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-sm whitespace-nowrap transition hover:opacity-80 bg-purple-100 text-purple-600">
-                      <Monitor size={16} /> Roast My Desk
                   </button>
               </div>
             </div>
@@ -673,8 +658,107 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* --- VIEW: CHAT ASSISTANT (NEW FULL PAGE) --- */}
+        {view === AppView.CHAT && (
+            <div className="flex flex-col h-[calc(100vh-140px)] md:h-full bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in">
+                {/* Chat Header */}
+                <div className="p-4 border-b bg-white flex justify-between items-center z-10 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-brand-600 flex items-center justify-center text-white">
+                            <Bot size={24} />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-gray-800">Health AI Assistant</h2>
+                            <p className="text-xs text-green-600 flex items-center gap-1 font-medium">
+                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Online
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={stopAudio} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" title="Stop Audio">
+                        <VolumeX size={20} />
+                    </button>
+                </div>
+
+                {/* Chat Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
+                    {chatHistory.length === 0 && (
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
+                            <Bot size={48} className="mb-4 text-brand-300"/>
+                            <h3 className="text-lg font-bold text-gray-700">How can I help you today?</h3>
+                            <p className="text-sm text-gray-500 mb-8 max-w-xs">Ask about nutrition, workouts, symptoms, or mental health.</p>
+                            
+                            <div className="grid grid-cols-2 gap-2 w-full max-w-md">
+                                {['Remedy for acidity?', 'Healthy desk snacks?', 'Exercises for back pain', 'High protein veg food'].map(q => (
+                                    <button 
+                                        key={q} 
+                                        onClick={() => handleVoiceInput(q)} 
+                                        className="text-xs bg-white border border-gray-200 px-4 py-3 rounded-xl text-gray-600 hover:border-brand-300 hover:text-brand-600 transition shadow-sm"
+                                    >
+                                        {q}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {chatHistory.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs ${msg.role === 'user' ? 'bg-gray-900' : 'bg-brand-600'}`}>
+                                    {msg.role === 'user' ? 'Me' : <Bot size={16}/>}
+                                </div>
+                                <div className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                                    msg.role === 'user' 
+                                    ? 'bg-gray-900 text-white rounded-tr-none' 
+                                    : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                                }`}>
+                                    {msg.text}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {isTyping && (
+                        <div className="flex justify-start">
+                             <div className="flex gap-2 max-w-[85%]">
+                                <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white">
+                                    <Bot size={16}/>
+                                </div>
+                                <div className="p-4 bg-white border border-gray-200 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></span>
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></span>
+                                </div>
+                             </div>
+                        </div>
+                    )}
+                    <div ref={chatEndRef} />
+                </div>
+
+                {/* Chat Input */}
+                <div className="p-4 bg-white border-t">
+                    <div className="flex items-center gap-2 bg-gray-100 p-2 rounded-2xl border border-transparent focus-within:border-brand-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-100 transition">
+                         <VoiceAgent onSpeechResult={handleVoiceInput} />
+                         <input 
+                            type="text" 
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                            placeholder="Type a message..."
+                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-2 outline-none"
+                         />
+                         <button 
+                            onClick={handleSendChat}
+                            disabled={!chatInput.trim()}
+                            className="p-3 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                             <Send size={18}/>
+                         </button>
+                    </div>
+                </div>
+            </div>
+        )}
         
-        {/* --- VIEW: HISTORY (NEW) --- */}
+        {/* --- VIEW: HISTORY --- */}
         {view === AppView.HISTORY && (
             <div className="space-y-8 animate-in fade-in">
                  <div className="flex justify-between items-center">
@@ -1018,9 +1102,9 @@ const App: React.FC = () => {
               <LayoutDashboard size={22} />
               <span className="text-[10px] font-bold mt-1">Home</span>
           </button>
-          <button onClick={() => setView(AppView.HISTORY)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.HISTORY ? 'text-brand-600' : 'text-gray-400'}`}>
-              <History size={22} />
-              <span className="text-[10px] font-bold mt-1">History</span>
+          <button onClick={() => setView(AppView.CHAT)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.CHAT ? 'text-brand-600' : 'text-gray-400'}`}>
+              <MessageSquare size={22} />
+              <span className="text-[10px] font-bold mt-1">Chat</span>
           </button>
           <div className="relative -top-8 z-50">
               <button 
@@ -1073,72 +1157,6 @@ const App: React.FC = () => {
                           End Session
                       </button>
                   </div>
-              </div>
-          </div>
-      )}
-
-      {/* Floating Buttons */}
-      <div className="fixed bottom-24 right-6 flex flex-col gap-4 z-40">
-           {/* Chat FAB */}
-           <button 
-              onClick={() => setIsChatOpen(true)}
-              className="w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all transform hover:scale-105 bg-blue-600 text-white"
-            >
-              <MessageSquare />
-            </button>
-           
-           {/* Voice FAB */}
-           <VoiceAgent onSpeechResult={handleVoiceInput} />
-      </div>
-
-      {/* Chat Dialog */}
-      {isChatOpen && (
-          <div className="fixed bottom-28 right-6 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 flex flex-col max-h-[500px] animate-in slide-in-from-bottom-10 fade-in duration-300">
-              <div className="p-4 border-b flex justify-between items-center bg-brand-600 rounded-t-2xl text-white">
-                  <h3 className="font-bold flex items-center gap-2"><MessageSquare size={18}/> Health Assistant</h3>
-                  <div className="flex gap-2">
-                       <button onClick={stopAudio} className="p-1 hover:bg-brand-500 rounded" title="Stop Audio"><VolumeX size={18}/></button>
-                       <button onClick={() => setIsChatOpen(false)}><XIcon size={18}/></button>
-                  </div>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 h-80">
-                  {chatHistory.length === 0 && (
-                      <div className="text-center mt-8">
-                          <p className="text-gray-400 text-sm">Ask me anything!</p>
-                          <div className="mt-4 flex flex-wrap justify-center gap-2">
-                              {['My acidity is high', 'Exercise for back pain', 'Good hair foods'].map(q => (
-                                  <button key={q} onClick={() => handleVoiceInput(q)} className="text-xs bg-white border px-3 py-1 rounded-full text-brand-600 hover:bg-brand-50">
-                                      {q}
-                                  </button>
-                              ))}
-                          </div>
-                      </div>
-                  )}
-                  {chatHistory.map((msg, i) => (
-                      <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none shadow-sm'}`}>
-                              {msg.text}
-                          </div>
-                      </div>
-                  ))}
-              </div>
-              
-              {/* Chat Input */}
-              <div className="p-3 bg-white border-t rounded-b-2xl flex gap-2">
-                  <input 
-                    type="text" 
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                    placeholder="Type your question..."
-                    className="flex-1 p-2 bg-gray-50 rounded-lg text-sm border-none focus:ring-1 focus:ring-brand-500 outline-none"
-                  />
-                  <button 
-                    onClick={handleSendChat}
-                    className="p-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition"
-                  >
-                      <Send size={18}/>
-                  </button>
               </div>
           </div>
       )}

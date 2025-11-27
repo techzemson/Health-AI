@@ -9,7 +9,8 @@ export enum AppView {
   PROFILE = 'PROFILE',
   HISTORY = 'HISTORY',
   PROGRESS_PHOTOS = 'PROGRESS_PHOTOS',
-  CALCULATORS = 'CALCULATORS'
+  CALCULATORS = 'CALCULATORS',
+  CHAT = 'CHAT'
 }
 
 export enum Gender {
