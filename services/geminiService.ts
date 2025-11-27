@@ -269,11 +269,11 @@ export const chatWithAgent = async (history: {role: string, parts: {text: string
 };
 
 /**
- * Generates structured data for Advanced Nutrition Tools.
+ * Generates structured data for Advanced Tools (Nutrition & Health).
  */
-export const generateNutritionToolData = async (toolTitle: string, toolCategory: string, userInput: string, userProfile: UserProfile): Promise<NutritionToolResponse> => {
+export const generateToolData = async (toolTitle: string, toolCategory: string, userInput: string, userProfile: UserProfile): Promise<NutritionToolResponse> => {
     const prompt = `
-        You are an expert nutritionist engine. The user is using the "${toolTitle}" tool (Category: ${toolCategory}).
+        You are an expert health and nutrition engine. The user is using the "${toolTitle}" tool (Category: ${toolCategory}).
         
         **User Profile:**
         Age: ${userProfile.age}, Weight: ${userProfile.weight}kg, Goal: ${userProfile.primaryGoals.join(', ')}, Issues: ${userProfile.healthIssues.join(', ')}.
@@ -283,25 +283,25 @@ export const generateNutritionToolData = async (toolTitle: string, toolCategory:
         "${userInput}"
 
         **Task:**
-        Generate structured JSON data for this tool.
+        Generate DETAILED structured JSON data for this tool. Provide extensive insights (15+ data points implied in the structure).
         
         If Category is 'PLANNER':
-        - Create a timeline of events (Meals, Actions).
-        - Create stats (Calories, Protein).
-        - Create a Macro Chart.
+        - Create a timeline of events (Meals, Actions, Reminders).
+        - Create stats (Calories, Duration, Intensity).
+        - Create a Chart.
         
         If Category is 'ANALYZER':
-        - Analyze the input.
-        - Create stats (Score, Risk Level).
+        - Analyze the input deeply.
+        - Create stats (Score, Risk Level, Quality).
         - Create a Chart showing breakdown.
         
         If Category is 'LIST':
-        - Create a checklist of items (Ingredients, Shopping, Steps).
+        - Create a checklist of items (Ingredients, Shopping, Steps, Swaps).
         - Create stats (Time, Difficulty, Count).
 
         **JSON Schema:**
         - title: A catchy title for the result.
-        - summary: A 2-sentence summary.
+        - summary: A concise summary.
         - stats: Array of { label, value, color (hex) }.
         - chartData: Array of { name, value (number), fill (hex) }.
         - timeline: Array of { time, title, desc, color (bg class like 'bg-blue-100 text-blue-800') }.

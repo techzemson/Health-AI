@@ -5,14 +5,14 @@ import {
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
   Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart as PieChartIcon, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones, Bot, MessageCircle, Cigarette, Wine, CloudMoon, ChefHat, Edit2, Save, RefreshCw, Loader2, Music, ArrowLeft, UtensilsCrossed, Search, List, Stethoscope, Droplet, Sparkles, AlertOctagon,
-  BarChart2, Shield, Menu, X, ArrowRight
+  BarChart2, Shield, Menu, X, ArrowRight, Brain, Footprints, Wallet, Clock
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 
 // Components
 import Scanner from './components/Scanner';
 import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto, ShoppingItem, ActivityLevel, CalculatorType, CalculatorResult, UnitSystem, NutritionToolCategory, NutritionToolResponse } from './types';
-import { generateDailyPlan, chatWithAgent, generateNutritionToolData } from './services/geminiService';
+import { generateDailyPlan, chatWithAgent, generateToolData } from './services/geminiService';
 
 // --- MOCK DATA ---
 const INITIAL_PROFILE: UserProfile = {
@@ -34,7 +34,7 @@ const INITIAL_PROFILE: UserProfile = {
 };
 
 // --- NUTRITION TOOLS CONFIG ---
-interface NutritionTool {
+interface ToolConfig {
     id: string;
     category: NutritionToolCategory;
     title: string;
@@ -44,7 +44,7 @@ interface NutritionTool {
     placeholder: string;
 }
 
-const NUTRITION_TOOLS: NutritionTool[] = [
+const NUTRITION_TOOLS: ToolConfig[] = [
     { id: 'DIET_PLAN', category: 'PLANNER', title: 'Personalized Diet Plan', desc: 'Full custom diet plan based on your body goals.', icon: Calendar, color: 'text-blue-500 bg-blue-50', placeholder: 'Enter your specific goal (e.g., "Lose 5kg in 2 months")...' },
     { id: 'MEAL_PLANNER', category: 'PLANNER', title: 'Meal Planner', desc: 'Plan breakfast, lunch, and dinner for specific days.', icon: Utensils, color: 'text-green-500 bg-green-50', placeholder: 'Enter specific preferences (e.g., "High protein, no dairy")...' },
     { id: 'WEEKLY_PLAN', category: 'PLANNER', title: 'Weekly Diet Planner', desc: '7-day structured meal schedule.', icon: Calendar, color: 'text-purple-500 bg-purple-50', placeholder: 'Any restrictions for the week? (e.g., "Cheats allowed on Sunday")...' },
@@ -69,6 +69,25 @@ const NUTRITION_TOOLS: NutritionTool[] = [
     { id: 'HAIR_FALL', category: 'PLANNER', title: 'Hair Fall Diet', desc: 'Biotin & Protein rich foods.', icon: BookOpen, color: 'text-amber-500 bg-amber-50', placeholder: 'Hair type / severity of fall...' },
     { id: 'IMMUNITY', category: 'PLANNER', title: 'Immunity Booster', desc: 'Vitamin C & Zinc rich diet plan.', icon: CheckCircle2, color: 'text-teal-500 bg-teal-50', placeholder: 'Frequent sickness?' },
     { id: 'ALLERGY', category: 'ANALYZER', title: 'Food Allergy Checker', desc: 'Check ingredients for allergens.', icon: AlertOctagon, color: 'text-red-500 bg-red-50', placeholder: 'Enter food and your allergies...' },
+];
+
+const HEALTH_TOOLS: ToolConfig[] = [
+  { id: 'WATER_CALC', category: 'ANALYZER', title: 'Water Intake Calculator', desc: 'Precise daily hydration goals.', icon: Droplets, color: 'text-blue-500 bg-blue-50', placeholder: 'Enter weight, activity level, and local weather...' },
+  { id: 'HYDRATION_REMIND', category: 'PLANNER', title: 'Hydration Reminder', desc: 'Smart schedule for water absorption.', icon: Clock, color: 'text-cyan-500 bg-cyan-50', placeholder: 'Wake up time and bed time...' },
+  { id: 'SLEEP_IMPROVE', category: 'PLANNER', title: 'Sleep Improvement', desc: 'Circadian rhythm reset plan.', icon: Moon, color: 'text-indigo-500 bg-indigo-50', placeholder: 'Current sleep issues (insomnia, light sleeper)?' },
+  { id: 'SLEEP_TRACK', category: 'ANALYZER', title: 'Sleep Quality Tracker', desc: 'Analyze sleep stages and efficiency.', icon: BedDouble, color: 'text-purple-500 bg-purple-50', placeholder: 'Hours slept, wake ups, how you feel...' },
+  { id: 'STRESS_ANALYZER', category: 'ANALYZER', title: 'Stress Analyzer', desc: 'Cortisol level estimation.', icon: Brain, color: 'text-red-500 bg-red-50', placeholder: 'Describe your current stress/anxiety levels...' },
+  { id: 'MOOD_TRACKER', category: 'ANALYZER', title: 'Mood Tracker', desc: 'Emotional pattern recognition.', icon: Smile, color: 'text-yellow-500 bg-yellow-50', placeholder: 'How do you feel today and why?' },
+  { id: 'STEPS_TRACKER', category: 'PLANNER', title: 'Daily Steps Tracker', desc: 'Walking goals for heart health.', icon: Footprints, color: 'text-green-500 bg-green-50', placeholder: 'Current average steps vs goal...' },
+  { id: 'EATING_BEHAVIOR', category: 'ANALYZER', title: 'Eating Behavior', desc: 'Emotional vs physical hunger.', icon: Utensils, color: 'text-orange-500 bg-orange-50', placeholder: 'Do you eat when stressed/bored?' },
+  { id: 'BUDGET_CALC', category: 'LIST', title: 'Smart Grocery Budget', desc: 'Healthy eating on a budget.', icon: Wallet, color: 'text-emerald-500 bg-emerald-50', placeholder: 'Weekly budget and dietary needs...' },
+  { id: 'RECIPE_ANALYZER', category: 'ANALYZER', title: 'Recipe Analyzer', desc: 'Nutritional breakdown.', icon: BookOpen, color: 'text-rose-500 bg-rose-50', placeholder: 'Paste recipe ingredients...' },
+  { id: 'FOOD_SWAP', category: 'LIST', title: 'Food Swap Tool', desc: 'Healthy alternatives to junk.', icon: RefreshCw, color: 'text-teal-500 bg-teal-50', placeholder: 'Food you want to replace (e.g. Chips)...' },
+  { id: 'HYDRATION_SCORE', category: 'ANALYZER', title: 'Body Hydration Score', desc: 'Check signs of dehydration.', icon: Droplet, color: 'text-blue-600 bg-blue-100', placeholder: 'Urine color, thirst level, skin elasticity...' },
+  { id: 'IMMUNITY_SCORE', category: 'ANALYZER', title: 'Immunity Score', desc: 'Defense system readiness.', icon: Shield, color: 'text-red-600 bg-red-100', placeholder: 'Frequency of sickness, energy levels...' },
+  { id: 'HABIT_TOOL', category: 'LIST', title: 'Daily Health Habit', desc: 'Micro-habits for long term.', icon: CheckCircle2, color: 'text-lime-600 bg-lime-100', placeholder: 'Goal (e.g. Better posture)...' },
+  { id: 'MEAL_REMIND', category: 'PLANNER', title: 'Meal Reminder', desc: 'Optimal eating windows.', icon: Bell, color: 'text-amber-600 bg-amber-100', placeholder: 'Wake up time...' },
+  { id: 'HEALTH_SCORE', category: 'ANALYZER', title: 'Health Progress Score', desc: 'Overall wellness metric.', icon: Activity, color: 'text-violet-600 bg-violet-100', placeholder: 'Recent improvements in weight, sleep, mood...' },
 ];
 
 const DashboardCard = ({ title, value, unit, icon: Icon, color, subValue }: any) => (
@@ -170,12 +189,12 @@ const App: React.FC = () => {
   const [calculatedResult, setCalculatedResult] = useState<CalculatorResult | null>(null);
   const [isMobileCalcView, setIsMobileCalcView] = useState(false);
 
-  // Nutrition View States
-  const [activeNutritionTool, setActiveNutritionTool] = useState<string | null>(null);
-  const [nutritionInput, setNutritionInput] = useState("");
-  const [nutritionResult, setNutritionResult] = useState<NutritionToolResponse | null>(null);
-  const [isGeneratingNutrition, setIsGeneratingNutrition] = useState(false);
-  const [nutritionSearch, setNutritionSearch] = useState("");
+  // Nutrition & Health Tool States
+  const [activeToolId, setActiveToolId] = useState<string | null>(null);
+  const [toolInput, setToolInput] = useState("");
+  const [toolResult, setToolResult] = useState<NutritionToolResponse | null>(null);
+  const [isGeneratingTool, setIsGeneratingTool] = useState(false);
+  const [toolSearch, setToolSearch] = useState("");
 
   // Initialize Data
   useEffect(() => {
@@ -236,18 +255,18 @@ const App: React.FC = () => {
 
   const handleSaveScan = (result: ScanResult) => { setScanHistory(prev => [result, ...prev]); };
 
-  const handleGenerateNutrition = async () => {
-      if (!nutritionInput.trim() || !activeNutritionTool) return;
-      setIsGeneratingNutrition(true);
-      setNutritionResult(null);
-      const tool = NUTRITION_TOOLS.find(t => t.id === activeNutritionTool);
+  const handleGenerateTool = async (toolsArray: ToolConfig[]) => {
+      if (!toolInput.trim() || !activeToolId) return;
+      setIsGeneratingTool(true);
+      setToolResult(null);
+      const tool = toolsArray.find(t => t.id === activeToolId);
       try {
-          const result = await generateNutritionToolData(tool?.title || 'Tool', tool?.category || 'PLANNER', nutritionInput, profile);
-          setNutritionResult(result);
+          const result = await generateToolData(tool?.title || 'Tool', tool?.category || 'PLANNER', toolInput, profile);
+          setToolResult(result);
       } catch (e) {
           console.error(e);
       } finally {
-          setIsGeneratingNutrition(false);
+          setIsGeneratingTool(false);
       }
   };
 
@@ -365,6 +384,124 @@ const App: React.FC = () => {
       }
   };
 
+  const renderToolView = (tools: ToolConfig[]) => (
+    <div className="space-y-6 animate-in fade-in h-full">
+        {!activeToolId && (
+            <>
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">{view === AppView.NUTRITION ? 'Nutrition Essentials' : 'Health Essentials'}</h2>
+                        <p className="text-gray-500">Specialized AI tools for your goals.</p>
+                    </div>
+                    <div className="relative">
+                        <Search size={18} className="absolute left-3 top-3.5 text-gray-400"/>
+                        <input type="text" placeholder="Search tools..." value={toolSearch} onChange={(e) => setToolSearch(e.target.value)} className="pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl w-full md:w-64 focus:ring-2 focus:ring-brand-100 outline-none" />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+                    {tools.filter(t => t.title.toLowerCase().includes(toolSearch.toLowerCase())).map(tool => (
+                        <button key={tool.id} onClick={() => { setActiveToolId(tool.id); setToolResult(null); setToolInput(""); }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-brand-200 hover:-translate-y-1 transition text-left flex flex-col h-full group">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${tool.color} group-hover:scale-110 transition`}><tool.icon size={24} /></div>
+                            <h3 className="font-bold text-gray-900 mb-1">{tool.title}</h3>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase w-fit mb-2 ${tool.category === 'PLANNER' ? 'bg-blue-100 text-blue-700' : tool.category === 'ANALYZER' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{tool.category}</span>
+                            <p className="text-xs text-gray-500 leading-relaxed flex-1">{tool.desc}</p>
+                            <div className="mt-4 flex items-center text-xs font-bold text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">Launch Tool <ChevronRight size={14} /></div>
+                        </button>
+                    ))}
+                </div>
+            </>
+        )}
+        {activeToolId && (
+            <div className="h-full flex flex-col md:flex-row gap-6">
+                {(() => {
+                    const tool = tools.find(t => t.id === activeToolId)!;
+                    return (
+                        <>
+                            <div className="w-full md:w-1/3 flex flex-col gap-4">
+                                <button onClick={() => setActiveToolId(null)} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 font-bold mb-2"><ArrowLeft size={18} /> Back to Tools</button>
+                                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${tool.color}`}><tool.icon size={28} /></div>
+                                    <h2 className="text-xl font-bold text-gray-900 mb-1">{tool.title}</h2>
+                                    <p className="text-sm text-gray-500 mb-6">{tool.desc}</p>
+                                    <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Your Requirements</label>
+                                    <textarea value={toolInput} onChange={(e) => setToolInput(e.target.value)} placeholder={tool.placeholder} className="w-full h-32 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-200 outline-none resize-none mb-4 text-sm"></textarea>
+                                    <button onClick={() => handleGenerateTool(tools)} disabled={isGeneratingTool || !toolInput.trim()} className="w-full py-3 bg-brand-600 text-white font-bold rounded-xl shadow-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">{isGeneratingTool ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} Generate Analysis</button>
+                                </div>
+                            </div>
+                            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 overflow-y-auto">
+                                {toolResult ? (
+                                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8">
+                                        <div>
+                                            <h3 className="text-2xl font-black text-gray-900 mb-2">{toolResult.title}</h3>
+                                            <p className="text-gray-600 leading-relaxed mb-6">{toolResult.summary}</p>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                {toolResult.stats.map((stat, i) => (
+                                                    <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                                        <p className="text-xs font-bold uppercase text-gray-400 mb-1">{stat.label}</p>
+                                                        <p className="text-lg font-bold" style={{color: stat.color}}>{stat.value}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="grid md:grid-cols-2 gap-8">
+                                            {toolResult.chartData && toolResult.chartData.length > 0 && (
+                                                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                                                    <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><PieChartIcon size={18}/> Breakdown</h4>
+                                                    <div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={toolResult.chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">{toolResult.chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}</Pie><Tooltip /><Legend verticalAlign="bottom" /></PieChart></ResponsiveContainer></div>
+                                                </div>
+                                            )}
+                                            <div className="space-y-6">
+                                                {toolResult.timeline && (
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Calendar size={18}/> Schedule</h4>
+                                                        <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-3 before:w-0.5 before:bg-gray-100">
+                                                            {toolResult.timeline.map((item, i) => (
+                                                                <div key={i} className="relative pl-8 pb-6 last:pb-0">
+                                                                    <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white border-4 border-brand-200"></div>
+                                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${item.color} mb-1 block w-fit`}>{item.time}</span>
+                                                                    <p className="font-bold text-sm text-gray-900">{item.title}</p>
+                                                                    <p className="text-xs text-gray-500">{item.desc}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {toolResult.checklist && (
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Checklist</h4>
+                                                        {toolResult.checklist.map((group, i) => (
+                                                            <div key={i} className="mb-4">
+                                                                <h5 className="text-sm font-bold text-brand-600 mb-2 uppercase">{group.category}</h5>
+                                                                <div className="space-y-2">{group.items.map((item, j) => (<div key={j} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50"><div className="w-4 h-4 border-2 border-gray-300 rounded-sm"></div><span className="text-sm text-gray-700">{item}</span></div>))}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {toolResult.actionPlan && (
+                                            <div className="bg-brand-50 p-6 rounded-2xl border border-brand-100">
+                                                <h4 className="font-bold text-brand-800 mb-4 flex items-center gap-2"><Target size={18}/> Immediate Actions</h4>
+                                                <div className="grid md:grid-cols-2 gap-3">{toolResult.actionPlan.map((action, i) => (<div key={i} className="flex items-start gap-3"><div className="w-6 h-6 rounded-full bg-brand-200 text-brand-700 flex items-center justify-center font-bold text-xs shrink-0">{i+1}</div><p className="text-sm text-brand-900">{action}</p></div>))}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-8 opacity-50">
+                                        <tool.icon size={64} className="mb-4 text-gray-200" />
+                                        <h3 className="text-lg font-bold text-gray-500">Ready to Generate</h3>
+                                        <p className="max-w-xs mx-auto text-sm mt-2">Enter your details to generate a comprehensive <b>{tool.category}</b> dashboard.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    );
+                })()}
+            </div>
+        )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 flex text-gray-900 font-sans">
       {/* Sidebar - Desktop */}
@@ -378,10 +515,11 @@ const App: React.FC = () => {
             { id: AppView.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
             { id: AppView.CHAT, icon: MessageSquare, label: 'AI Assistant' },
             { id: AppView.NUTRITION, icon: UtensilsCrossed, label: 'Nutrition Essentials' },
+            { id: AppView.HEALTH, icon: HeartPulse, label: 'Health Essentials' },
             { id: AppView.CALCULATORS, icon: Calculator, label: 'Calculators' },
             { id: AppView.HISTORY, icon: History, label: 'History' },
           ].map((item) => (
-            <button key={item.id} onClick={() => setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${view === item.id ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <button key={item.id} onClick={() => { setView(item.id); setActiveToolId(null); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${view === item.id ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>
               <item.icon size={18} /> {item.label}
             </button>
           ))}
@@ -392,123 +530,10 @@ const App: React.FC = () => {
       <main className="flex-1 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full">
         
         {/* --- VIEW: NUTRITION ESSENTIALS --- */}
-        {view === AppView.NUTRITION && (
-            <div className="space-y-6 animate-in fade-in h-full">
-                {!activeNutritionTool && (
-                    <>
-                        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900">Nutrition Essentials</h2>
-                                <p className="text-gray-500">24+ Specialized AI tools for your diet & health goals.</p>
-                            </div>
-                            <div className="relative">
-                                <Search size={18} className="absolute left-3 top-3.5 text-gray-400"/>
-                                <input type="text" placeholder="Search tools..." value={nutritionSearch} onChange={(e) => setNutritionSearch(e.target.value)} className="pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl w-full md:w-64 focus:ring-2 focus:ring-brand-100 outline-none" />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-                            {NUTRITION_TOOLS.filter(t => t.title.toLowerCase().includes(nutritionSearch.toLowerCase())).map(tool => (
-                                <button key={tool.id} onClick={() => { setActiveNutritionTool(tool.id); setNutritionResult(null); setNutritionInput(""); }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-brand-200 hover:-translate-y-1 transition text-left flex flex-col h-full group">
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${tool.color} group-hover:scale-110 transition`}><tool.icon size={24} /></div>
-                                    <h3 className="font-bold text-gray-900 mb-1">{tool.title}</h3>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase w-fit mb-2 ${tool.category === 'PLANNER' ? 'bg-blue-100 text-blue-700' : tool.category === 'ANALYZER' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{tool.category}</span>
-                                    <p className="text-xs text-gray-500 leading-relaxed flex-1">{tool.desc}</p>
-                                    <div className="mt-4 flex items-center text-xs font-bold text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">Launch Tool <ChevronRight size={14} /></div>
-                                </button>
-                            ))}
-                        </div>
-                    </>
-                )}
-                {activeNutritionTool && (
-                    <div className="h-full flex flex-col md:flex-row gap-6">
-                        {(() => {
-                            const tool = NUTRITION_TOOLS.find(t => t.id === activeNutritionTool)!;
-                            return (
-                                <>
-                                    <div className="w-full md:w-1/3 flex flex-col gap-4">
-                                        <button onClick={() => setActiveNutritionTool(null)} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 font-bold mb-2"><ArrowLeft size={18} /> Back to Tools</button>
-                                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${tool.color}`}><tool.icon size={28} /></div>
-                                            <h2 className="text-xl font-bold text-gray-900 mb-1">{tool.title}</h2>
-                                            <p className="text-sm text-gray-500 mb-6">{tool.desc}</p>
-                                            <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Your Requirements</label>
-                                            <textarea value={nutritionInput} onChange={(e) => setNutritionInput(e.target.value)} placeholder={tool.placeholder} className="w-full h-32 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-200 outline-none resize-none mb-4 text-sm"></textarea>
-                                            <button onClick={handleGenerateNutrition} disabled={isGeneratingNutrition || !nutritionInput.trim()} className="w-full py-3 bg-brand-600 text-white font-bold rounded-xl shadow-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">{isGeneratingNutrition ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} Generate Analysis</button>
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 overflow-y-auto">
-                                        {nutritionResult ? (
-                                            <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8">
-                                                <div>
-                                                    <h3 className="text-2xl font-black text-gray-900 mb-2">{nutritionResult.title}</h3>
-                                                    <p className="text-gray-600 leading-relaxed mb-6">{nutritionResult.summary}</p>
-                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                        {nutritionResult.stats.map((stat, i) => (
-                                                            <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                                                <p className="text-xs font-bold uppercase text-gray-400 mb-1">{stat.label}</p>
-                                                                <p className="text-lg font-bold" style={{color: stat.color}}>{stat.value}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <div className="grid md:grid-cols-2 gap-8">
-                                                    {nutritionResult.chartData && nutritionResult.chartData.length > 0 && (
-                                                        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-                                                            <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><PieChartIcon size={18}/> Breakdown</h4>
-                                                            <div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={nutritionResult.chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">{nutritionResult.chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}</Pie><Tooltip /><Legend verticalAlign="bottom" /></PieChart></ResponsiveContainer></div>
-                                                        </div>
-                                                    )}
-                                                    <div className="space-y-6">
-                                                        {nutritionResult.timeline && (
-                                                            <div>
-                                                                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Calendar size={18}/> Schedule</h4>
-                                                                <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-3 before:w-0.5 before:bg-gray-100">
-                                                                    {nutritionResult.timeline.map((item, i) => (
-                                                                        <div key={i} className="relative pl-8 pb-6 last:pb-0">
-                                                                            <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white border-4 border-brand-200"></div>
-                                                                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${item.color} mb-1 block w-fit`}>{item.time}</span>
-                                                                            <p className="font-bold text-sm text-gray-900">{item.title}</p>
-                                                                            <p className="text-xs text-gray-500">{item.desc}</p>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {nutritionResult.checklist && (
-                                                            <div>
-                                                                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Checklist</h4>
-                                                                {nutritionResult.checklist.map((group, i) => (
-                                                                    <div key={i} className="mb-4">
-                                                                        <h5 className="text-sm font-bold text-brand-600 mb-2 uppercase">{group.category}</h5>
-                                                                        <div className="space-y-2">{group.items.map((item, j) => (<div key={j} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50"><div className="w-4 h-4 border-2 border-gray-300 rounded-sm"></div><span className="text-sm text-gray-700">{item}</span></div>))}</div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                {nutritionResult.actionPlan && (
-                                                    <div className="bg-brand-50 p-6 rounded-2xl border border-brand-100">
-                                                        <h4 className="font-bold text-brand-800 mb-4 flex items-center gap-2"><Target size={18}/> Immediate Actions</h4>
-                                                        <div className="grid md:grid-cols-2 gap-3">{nutritionResult.actionPlan.map((action, i) => (<div key={i} className="flex items-start gap-3"><div className="w-6 h-6 rounded-full bg-brand-200 text-brand-700 flex items-center justify-center font-bold text-xs shrink-0">{i+1}</div><p className="text-sm text-brand-900">{action}</p></div>))}</div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-8 opacity-50">
-                                                <tool.icon size={64} className="mb-4 text-gray-200" />
-                                                <h3 className="text-lg font-bold text-gray-500">Ready to Generate</h3>
-                                                <p className="max-w-xs mx-auto text-sm mt-2">Enter your details to generate a comprehensive <b>{tool.category}</b> dashboard.</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </div>
-                )}
-            </div>
-        )}
+        {view === AppView.NUTRITION && renderToolView(NUTRITION_TOOLS)}
+
+        {/* --- VIEW: HEALTH ESSENTIALS --- */}
+        {view === AppView.HEALTH && renderToolView(HEALTH_TOOLS)}
 
         {/* --- VIEW: DASHBOARD --- */}
         {view === AppView.DASHBOARD && (
