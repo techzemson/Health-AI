@@ -11,7 +11,7 @@ export enum AppView {
   PROGRESS_PHOTOS = 'PROGRESS_PHOTOS',
   CALCULATORS = 'CALCULATORS',
   CHAT = 'CHAT',
-  MEDICAL_ID = 'MEDICAL_ID'
+  NUTRITION = 'NUTRITION'
 }
 
 export enum Gender {
@@ -182,4 +182,17 @@ export interface ProgressPhoto {
   date: string;
   image: string;
   note: string;
+}
+
+// Nutrition Tool Types
+export type NutritionToolCategory = 'PLANNER' | 'ANALYZER' | 'LIST';
+
+export interface NutritionToolResponse {
+  title: string;
+  summary: string;
+  stats: { label: string; value: string; color: string; icon?: string }[];
+  chartData?: { name: string; value: number; fill: string }[];
+  timeline?: { time: string; title: string; desc: string; color: string }[];
+  checklist?: { category: string; items: string[] }[];
+  actionPlan?: string[];
 }

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ScanResult, UserProfile, MealPlan, WorkoutPlan } from "../types";
+import { ScanResult, UserProfile, MealPlan, WorkoutPlan, NutritionToolResponse } from "../types";
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -267,3 +267,110 @@ export const chatWithAgent = async (history: {role: string, parts: {text: string
     const result = await chat.sendMessage({ message });
     return result.text || "I'm having trouble understanding right now. Please try again.";
 };
+
+/**
+ * Generates structured data for Advanced Nutrition Tools.
+ */
+export const generateNutritionToolData = async (toolTitle: string, toolCategory: string, userInput: string, userProfile: UserProfile): Promise<NutritionToolResponse> => {
+    const prompt = `
+        You are an expert nutritionist engine. The user is using the "${toolTitle}" tool (Category: ${toolCategory}).
+        
+        **User Profile:**
+        Age: ${userProfile.age}, Weight: ${userProfile.weight}kg, Goal: ${userProfile.primaryGoals.join(', ')}, Issues: ${userProfile.healthIssues.join(', ')}.
+        Dietary Preference: ${userProfile.dietaryPreference}.
+
+        **User's Specific Input:**
+        "${userInput}"
+
+        **Task:**
+        Generate structured JSON data for this tool.
+        
+        If Category is 'PLANNER':
+        - Create a timeline of events (Meals, Actions).
+        - Create stats (Calories, Protein).
+        - Create a Macro Chart.
+        
+        If Category is 'ANALYZER':
+        - Analyze the input.
+        - Create stats (Score, Risk Level).
+        - Create a Chart showing breakdown.
+        
+        If Category is 'LIST':
+        - Create a checklist of items (Ingredients, Shopping, Steps).
+        - Create stats (Time, Difficulty, Count).
+
+        **JSON Schema:**
+        - title: A catchy title for the result.
+        - summary: A 2-sentence summary.
+        - stats: Array of { label, value, color (hex) }.
+        - chartData: Array of { name, value (number), fill (hex) }.
+        - timeline: Array of { time, title, desc, color (bg class like 'bg-blue-100 text-blue-800') }.
+        - checklist: Array of { category, items: string[] }.
+        - actionPlan: Array of strings (Next steps).
+    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    summary: { type: Type.STRING },
+                    stats: { 
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                label: { type: Type.STRING },
+                                value: { type: Type.STRING },
+                                color: { type: Type.STRING }
+                            }
+                        }
+                    },
+                    chartData: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                name: { type: Type.STRING },
+                                value: { type: Type.NUMBER },
+                                fill: { type: Type.STRING }
+                            }
+                        }
+                    },
+                    timeline: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                time: { type: Type.STRING },
+                                title: { type: Type.STRING },
+                                desc: { type: Type.STRING },
+                                color: { type: Type.STRING }
+                            }
+                        }
+                    },
+                    checklist: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                category: { type: Type.STRING },
+                                items: { type: Type.ARRAY, items: { type: Type.STRING } }
+                            }
+                        }
+                    },
+                    actionPlan: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                    }
+                }
+            }
+        }
+    });
+
+    return JSON.parse(response.text!) as NutritionToolResponse;
+}
