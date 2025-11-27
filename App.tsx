@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, Utensils, ScanLine, Activity, MessageSquare, 
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
-  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart as PieChartIcon, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones, Bot, MessageCircle, Cigarette, Wine, CloudMoon, Stethoscope, ChefHat, FileHeart, Edit2, Save, RefreshCw, Loader2, Music
+  Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart as PieChartIcon, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones, Bot, MessageCircle, Cigarette, Wine, CloudMoon, Stethoscope, ChefHat, FileHeart, Edit2, Save, RefreshCw, Loader2, Music, ArrowLeft
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
@@ -143,6 +142,7 @@ const App: React.FC = () => {
     age: 33, weight: 75, height: 175,
     gender: Gender.MALE 
   }); 
+  const [isMobileCalcView, setIsMobileCalcView] = useState(false); // Mobile view toggle
   
   // New Calculator States
   const [orm, setOrm] = useState({ weight: 60, reps: 5 });
@@ -316,6 +316,7 @@ const App: React.FC = () => {
 
   const navigateToCalculators = () => {
       setView(AppView.CALCULATORS);
+      setIsMobileCalcView(false);
   };
   
   const generatePantryRecipe = async () => {
@@ -969,12 +970,17 @@ const App: React.FC = () => {
         {/* --- VIEW: CALCULATORS (UPDATED) --- */}
         {view === AppView.CALCULATORS && (
             <div className="space-y-8 animate-in fade-in flex flex-col md:flex-row gap-6 h-[calc(100vh-140px)]">
-                 <div className="md:w-72 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-y-auto no-scrollbar shrink-0">
+                 {/* Sidebar List - Visible on Desktop OR if not in mobile detail view */}
+                 <div className={`w-full md:w-72 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-y-auto no-scrollbar shrink-0 ${isMobileCalcView ? 'hidden md:block' : 'block'}`}>
                      <div className="p-2 space-y-1">
                          {(Object.keys(CALCULATOR_DATA) as CalculatorType[]).map((type) => (
                              <button
                                 key={type}
-                                onClick={() => { setActiveCalculator(type); setCalculatedResult(null); }}
+                                onClick={() => { 
+                                  setActiveCalculator(type); 
+                                  setCalculatedResult(null); 
+                                  setIsMobileCalcView(true);
+                                }}
                                 className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-3 transition ${
                                     activeCalculator === type 
                                     ? 'bg-brand-50 text-brand-700 border-l-4 border-brand-600' 
@@ -990,10 +996,19 @@ const App: React.FC = () => {
                      </div>
                  </div>
 
-                 {/* Main Calculator Panel */}
-                 <div className="flex-1 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row">
+                 {/* Main Calculator Panel - Hidden on mobile if viewing list */}
+                 <div className={`flex-1 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row ${!isMobileCalcView ? 'hidden md:flex' : 'flex'}`}>
+                     
+                     {/* Mobile Back Button Header */}
+                     <div className="md:hidden p-4 border-b border-gray-100 flex items-center gap-2">
+                        <button onClick={() => setIsMobileCalcView(false)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
+                          <ArrowLeft size={20} />
+                        </button>
+                        <span className="font-bold text-gray-700">Back to Tools</span>
+                     </div>
+
                      {/* Input Form */}
-                     <div className="flex-1 p-8 overflow-y-auto">
+                     <div className="flex-1 p-6 md:p-8 overflow-y-auto">
                          <div className="flex items-center gap-3 mb-2">
                              <div className={`p-2 rounded-xl ${CALCULATOR_DATA[activeCalculator].color}`}>
                                  {React.createElement(CALCULATOR_DATA[activeCalculator].icon, { size: 24 })}
@@ -1283,12 +1298,12 @@ const App: React.FC = () => {
           <div className="relative -top-8 z-50">
               <button 
                 onClick={() => { setSelectedScan(null); setShowScanner(true); }}
-                className="w-16 h-16 bg-gradient-to-tr from-brand-500 to-brand-400 rounded-full shadow-lg shadow-brand-200 flex items-center justify-center text-white transform active:scale-95 transition border-4 border-slate-50"
+                className="w-16 h-16 bg-gradient-to-tr from-brand-500 to-brand-400 rounded-full shadow-lg shadow-brand-200 flex items-center justify-center text-white transform active:scale-95 transition ring-4 ring-slate-50"
               >
                   <ScanLine size={28} />
               </button>
           </div>
-          <button onClick={() => setView(AppView.CALCULATORS)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.CALCULATORS ? 'text-brand-600' : 'text-gray-400'}`}>
+          <button onClick={() => { setView(AppView.CALCULATORS); setIsMobileCalcView(false); }} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.CALCULATORS ? 'text-brand-600' : 'text-gray-400'}`}>
               <Calculator size={22} />
               <span className="text-[10px] font-bold mt-1">Calc</span>
           </button>
