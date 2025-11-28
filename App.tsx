@@ -5,13 +5,13 @@ import {
   User as UserIcon, Bell, Mic, MicOff,
   Sun, BedDouble, Smile, AlertTriangle, History, Camera, TrendingUp,
   Award, Zap, Calendar, Droplets, BookOpen, Heart, ChevronRight, Share2, Plus, X as XIcon, Trash2, ShoppingCart, Play, CheckCircle2, Wind, Scale, Calculator, Monitor, Timer, Flame, Info, Construction, HeartPulse, PieChart as PieChartIcon, Target, Ruler, Dumbbell, Baby, Percent, Send, VolumeX, Moon, Headphones, Bot, MessageCircle, Cigarette, Wine, CloudMoon, ChefHat, Edit2, Save, RefreshCw, Loader2, Music, ArrowLeft, UtensilsCrossed, Search, List, Stethoscope, Droplet, Sparkles, AlertOctagon,
-  BarChart2, Shield, Menu, X, ArrowRight, Brain, Footprints, Wallet, Clock
+  BarChart2, Shield, Menu, X, ArrowRight, Brain, Footprints, Wallet, Clock, ChevronDown, ChevronUp, Bike, Waves, SmilePlus
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 
 // Components
 import Scanner from './components/Scanner';
-import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ProgressPhoto, ShoppingItem, ActivityLevel, CalculatorType, CalculatorResult, UnitSystem, NutritionToolCategory, NutritionToolResponse } from './types';
+import { UserProfile, AppView, MealPlan, WorkoutPlan, Gender, ScanResult, ShoppingItem, ActivityLevel, CalculatorType, CalculatorResult, NutritionToolCategory, NutritionToolResponse } from './types';
 import { generateDailyPlan, chatWithAgent, generateToolData } from './services/geminiService';
 
 // --- MOCK DATA ---
@@ -33,61 +33,24 @@ const INITIAL_PROFILE: UserProfile = {
   emergencyContact: "+1-555-0123"
 };
 
-// --- NUTRITION TOOLS CONFIG ---
-interface ToolConfig {
-    id: string;
-    category: NutritionToolCategory;
-    title: string;
-    desc: string;
-    icon: any;
-    color: string;
-    placeholder: string;
-}
-
-const NUTRITION_TOOLS: ToolConfig[] = [
-    { id: 'DIET_PLAN', category: 'PLANNER', title: 'Personalized Diet Plan', desc: 'Full custom diet plan based on your body goals.', icon: Calendar, color: 'text-blue-500 bg-blue-50', placeholder: 'Enter your specific goal (e.g., "Lose 5kg in 2 months")...' },
-    { id: 'MEAL_PLANNER', category: 'PLANNER', title: 'Meal Planner', desc: 'Plan breakfast, lunch, and dinner for specific days.', icon: Utensils, color: 'text-green-500 bg-green-50', placeholder: 'Enter specific preferences (e.g., "High protein, no dairy")...' },
-    { id: 'WEEKLY_PLAN', category: 'PLANNER', title: 'Weekly Diet Planner', desc: '7-day structured meal schedule.', icon: Calendar, color: 'text-purple-500 bg-purple-50', placeholder: 'Any restrictions for the week? (e.g., "Cheats allowed on Sunday")...' },
-    { id: 'NEEDS_ANALYZER', category: 'ANALYZER', title: 'Nutrition Needs', desc: 'Analyze your daily macro and micro needs.', icon: Activity, color: 'text-orange-500 bg-orange-50', placeholder: 'Describe your daily activity and eating habits...' },
-    { id: 'FACTS_FINDER', category: 'ANALYZER', title: 'Nutrition Facts', desc: 'Get detailed macros for any food item.', icon: Search, color: 'text-teal-500 bg-teal-50', placeholder: 'Enter food name (e.g., "Avocado toast")...' },
-    { id: 'MEAL_TRACKER', category: 'LIST', title: 'Daily Meal Tracker', desc: 'Log and analyze your daily intake.', icon: List, color: 'text-indigo-500 bg-indigo-50', placeholder: 'List what you ate today...' },
-    { id: 'RECIPE_GEN', category: 'LIST', title: 'Healthy Recipes', desc: 'Generate delicious healthy recipes.', icon: ChefHat, color: 'text-red-500 bg-red-50', placeholder: 'Enter ingredients or dish type...' },
-    { id: 'GROCERY_GEN', category: 'LIST', title: 'Grocery Generator', desc: 'Smart shopping list for your diet.', icon: ShoppingCart, color: 'text-yellow-500 bg-yellow-50', placeholder: 'For how many days/people are you shopping?' },
-    { id: 'FASTING', category: 'PLANNER', title: 'Intermittent Fasting', desc: 'Fasting schedules (16:8, OMAD, etc.).', icon: Timer, color: 'text-cyan-500 bg-cyan-50', placeholder: 'Select style (16:8, 5:2) or ask for recommendation...' },
-    { id: 'PORTION_CALC', category: 'ANALYZER', title: 'Portion Calculator', desc: 'Visual portion sizes for your goals.', icon: PieChartIcon, color: 'text-pink-500 bg-pink-50', placeholder: 'Enter the food item...' },
-    { id: 'DEFICIT_MAKER', category: 'PLANNER', title: 'Calorie Deficit Maker', desc: 'Meals designed to keep you in deficit.', icon: TrendingUp, color: 'text-emerald-500 bg-emerald-50', placeholder: 'Enter your target calorie limit (e.g., 1500 kcal)...' },
-    { id: 'DIABETES_PLAN', category: 'PLANNER', title: 'Diabetes-Friendly', desc: 'Low GI/GL meal plans for blood sugar.', icon: Stethoscope, color: 'text-blue-600 bg-blue-100', placeholder: 'Enter insulin details or dietary restrictions...' },
-    { id: 'HEART_PLAN', category: 'PLANNER', title: 'Heart Health Diet', desc: 'Low sodium/cholesterol meals.', icon: Heart, color: 'text-red-600 bg-red-100', placeholder: 'Any specific heart conditions?' },
-    { id: 'PCOS_TOOL', category: 'PLANNER', title: 'PCOS/PCOD Diet', desc: 'Hormone balancing nutrition plan.', icon: Sparkles, color: 'text-purple-600 bg-purple-100', placeholder: 'Describe your symptoms...' },
-    { id: 'THYROID_PLAN', category: 'PLANNER', title: 'Thyroid-Friendly', desc: 'Nutrition for Hypo/Hyperthyroidism.', icon: Activity, color: 'text-yellow-600 bg-yellow-100', placeholder: 'Hypo or Hyper? Meds?' },
-    { id: 'CHOLESTEROL', category: 'PLANNER', title: 'Cholesterol Manager', desc: 'Foods to lower LDL and raise HDL.', icon: Droplet, color: 'text-orange-600 bg-orange-100', placeholder: 'Current cholesterol levels (if known)...' },
-    { id: 'LIVER_DETOX', category: 'PLANNER', title: 'Liver Detox Diet', desc: 'Cleanse foods for liver health.', icon: RefreshCw, color: 'text-green-600 bg-green-100', placeholder: 'Reason for detox?' },
-    { id: 'GUT_HEALTH', category: 'PLANNER', title: 'Gut Health Tool', desc: 'Probiotic/Prebiotic foods for digestion.', icon: Activity, color: 'text-lime-600 bg-lime-100', placeholder: 'Digestion issues (bloating, gas)?' },
-    { id: 'WEIGHT_LOSS', category: 'PLANNER', title: 'Weight Loss Maker', desc: 'Fat burning meal combinations.', icon: Scale, color: 'text-blue-500 bg-blue-50', placeholder: 'Target weight loss per week...' },
-    { id: 'SMOOTHIE', category: 'LIST', title: 'Smoothie Generator', desc: 'Nutrient dense smoothie recipes.', icon: Droplet, color: 'text-pink-500 bg-pink-50', placeholder: 'Preferred flavor (Fruity, Green, Choc)?' },
-    { id: 'SKIN_GLOW', category: 'PLANNER', title: 'Skin Glow Diet', desc: 'Anti-inflammatory foods for skin.', icon: Sparkles, color: 'text-rose-500 bg-rose-50', placeholder: 'Skin type (Oily, Dry, Acne)?' },
-    { id: 'HAIR_FALL', category: 'PLANNER', title: 'Hair Fall Diet', desc: 'Biotin & Protein rich foods.', icon: BookOpen, color: 'text-amber-500 bg-amber-50', placeholder: 'Hair type / severity of fall...' },
-    { id: 'IMMUNITY', category: 'PLANNER', title: 'Immunity Booster', desc: 'Vitamin C & Zinc rich diet plan.', icon: CheckCircle2, color: 'text-teal-500 bg-teal-50', placeholder: 'Frequent sickness?' },
-    { id: 'ALLERGY', category: 'ANALYZER', title: 'Food Allergy Checker', desc: 'Check ingredients for allergens.', icon: AlertOctagon, color: 'text-red-500 bg-red-50', placeholder: 'Enter food and your allergies...' },
+// --- MENTAL HEALTH MOCK DATA ---
+const MOOD_HISTORY = [
+    { day: 'Mon', mood: 7, sleep: 6.5, anxiety: 3 },
+    { day: 'Tue', mood: 6, sleep: 7, anxiety: 4 },
+    { day: 'Wed', mood: 8, sleep: 8, anxiety: 2 },
+    { day: 'Thu', mood: 5, sleep: 5.5, anxiety: 6 },
+    { day: 'Fri', mood: 7, sleep: 7, anxiety: 3 },
+    { day: 'Sat', mood: 9, sleep: 8.5, anxiety: 1 },
+    { day: 'Sun', mood: 8, sleep: 8, anxiety: 2 },
 ];
 
-const HEALTH_TOOLS: ToolConfig[] = [
-  { id: 'WATER_CALC', category: 'ANALYZER', title: 'Water Intake Calculator', desc: 'Precise daily hydration goals.', icon: Droplets, color: 'text-blue-500 bg-blue-50', placeholder: 'Enter weight, activity level, and local weather...' },
-  { id: 'HYDRATION_REMIND', category: 'PLANNER', title: 'Hydration Reminder', desc: 'Smart schedule for water absorption.', icon: Clock, color: 'text-cyan-500 bg-cyan-50', placeholder: 'Wake up time and bed time...' },
-  { id: 'SLEEP_IMPROVE', category: 'PLANNER', title: 'Sleep Improvement', desc: 'Circadian rhythm reset plan.', icon: Moon, color: 'text-indigo-500 bg-indigo-50', placeholder: 'Current sleep issues (insomnia, light sleeper)?' },
-  { id: 'SLEEP_TRACK', category: 'ANALYZER', title: 'Sleep Quality Tracker', desc: 'Analyze sleep stages and efficiency.', icon: BedDouble, color: 'text-purple-500 bg-purple-50', placeholder: 'Hours slept, wake ups, how you feel...' },
-  { id: 'STRESS_ANALYZER', category: 'ANALYZER', title: 'Stress Analyzer', desc: 'Cortisol level estimation.', icon: Brain, color: 'text-red-500 bg-red-50', placeholder: 'Describe your current stress/anxiety levels...' },
-  { id: 'MOOD_TRACKER', category: 'ANALYZER', title: 'Mood Tracker', desc: 'Emotional pattern recognition.', icon: Smile, color: 'text-yellow-500 bg-yellow-50', placeholder: 'How do you feel today and why?' },
-  { id: 'STEPS_TRACKER', category: 'PLANNER', title: 'Daily Steps Tracker', desc: 'Walking goals for heart health.', icon: Footprints, color: 'text-green-500 bg-green-50', placeholder: 'Current average steps vs goal...' },
-  { id: 'EATING_BEHAVIOR', category: 'ANALYZER', title: 'Eating Behavior', desc: 'Emotional vs physical hunger.', icon: Utensils, color: 'text-orange-500 bg-orange-50', placeholder: 'Do you eat when stressed/bored?' },
-  { id: 'BUDGET_CALC', category: 'LIST', title: 'Smart Grocery Budget', desc: 'Healthy eating on a budget.', icon: Wallet, color: 'text-emerald-500 bg-emerald-50', placeholder: 'Weekly budget and dietary needs...' },
-  { id: 'RECIPE_ANALYZER', category: 'ANALYZER', title: 'Recipe Analyzer', desc: 'Nutritional breakdown.', icon: BookOpen, color: 'text-rose-500 bg-rose-50', placeholder: 'Paste recipe ingredients...' },
-  { id: 'FOOD_SWAP', category: 'LIST', title: 'Food Swap Tool', desc: 'Healthy alternatives to junk.', icon: RefreshCw, color: 'text-teal-500 bg-teal-50', placeholder: 'Food you want to replace (e.g. Chips)...' },
-  { id: 'HYDRATION_SCORE', category: 'ANALYZER', title: 'Body Hydration Score', desc: 'Check signs of dehydration.', icon: Droplet, color: 'text-blue-600 bg-blue-100', placeholder: 'Urine color, thirst level, skin elasticity...' },
-  { id: 'IMMUNITY_SCORE', category: 'ANALYZER', title: 'Immunity Score', desc: 'Defense system readiness.', icon: Shield, color: 'text-red-600 bg-red-100', placeholder: 'Frequency of sickness, energy levels...' },
-  { id: 'HABIT_TOOL', category: 'LIST', title: 'Daily Health Habit', desc: 'Micro-habits for long term.', icon: CheckCircle2, color: 'text-lime-600 bg-lime-100', placeholder: 'Goal (e.g. Better posture)...' },
-  { id: 'MEAL_REMIND', category: 'PLANNER', title: 'Meal Reminder', desc: 'Optimal eating windows.', icon: Bell, color: 'text-amber-600 bg-amber-100', placeholder: 'Wake up time...' },
-  { id: 'HEALTH_SCORE', category: 'ANALYZER', title: 'Health Progress Score', desc: 'Overall wellness metric.', icon: Activity, color: 'text-violet-600 bg-violet-100', placeholder: 'Recent improvements in weight, sleep, mood...' },
+const CALCULATOR_TOOLS: { category: string, tools: { id: CalculatorType, label: string }[] }[] = [
+    { category: "General Body", tools: [{ id: 'BMI', label: 'BMI Calculator' }, { id: 'BMR', label: 'BMR Calculator' }, { id: 'TDEE', label: 'TDEE Calculator' }, { id: 'BODY_FAT', label: 'Body Fat %' }, { id: 'LEAN_MASS', label: 'Lean Body Mass' }, { id: 'IBW', label: 'Ideal Weight' }, { id: 'FRAME_SIZE', label: 'Frame Size' }, { id: 'HEART_RATE_ZONE', label: 'Heart Rate Zones' }] },
+    { category: "Nutrition", tools: [{ id: 'CALORIE_INTAKE', label: 'Daily Calorie Intake' }, { id: 'PROTEIN', label: 'Protein Calculator' }, { id: 'CARB', label: 'Carb Calculator' }, { id: 'FAT', label: 'Fat Calculator' }, { id: 'FIBER', label: 'Fiber Calculator' }, { id: 'SUGAR', label: 'Sugar Intake' }, { id: 'SODIUM', label: 'Sodium Intake' }, { id: 'VITAMIN', label: 'Vitamin Needs' }, { id: 'MINERAL', label: 'Mineral Needs' }] },
+    { category: "Disease-Specific", tools: [{ id: 'DIABETES_RISK', label: 'Diabetes Risk' }, { id: 'BP_RISK', label: 'Blood Pressure Risk' }, { id: 'HEART_RISK', label: 'Heart Disease Risk' }, { id: 'KIDNEY_RISK', label: 'Kidney Health Risk' }, { id: 'LIVER_SCORE', label: 'Liver Health Score' }] },
+    { category: "Fitness", tools: [{ id: 'STEPS_CALORIE', label: 'Steps to Calories' }, { id: 'WALKING', label: 'Walking Calories' }, { id: 'RUNNING', label: 'Running Calories' }, { id: 'CYCLING', label: 'Cycling Calories' }, { id: 'SWIMMING', label: 'Swimming Calories' }, { id: 'GYM_CALORIE', label: 'Gym Workout Calories' }, { id: 'VO2_MAX', label: 'VO2 Max' }, { id: 'STRENGTH_LEVEL', label: 'Strength Level' }] },
+    { category: "Women's Health", tools: [{ id: 'DUE_DATE', label: 'Pregnancy Due Date' }, { id: 'OVULATION', label: 'Ovulation & Fertility' }, { id: 'PREGNANCY_CALORIE', label: 'Pregnancy Calories' }, { id: 'BREASTFEEDING', label: 'Breastfeeding Nutrition' }, { id: 'PCOS_WEIGHT', label: 'PCOS Weight Loss' }] },
+    { category: "Other", tools: [{ id: 'METABOLIC_AGE', label: 'Metabolic Age' }, { id: 'HYDRATION_LEVEL', label: 'Hydration Level' }, { id: 'SLEEP_DURATION', label: 'Sleep Duration' }, { id: 'STRESS_LEVEL', label: 'Stress Level' }, { id: 'IMMUNITY_SCORE', label: 'Immunity Score' }] }
 ];
 
 const DashboardCard = ({ title, value, unit, icon: Icon, color, subValue }: any) => (
@@ -177,24 +140,29 @@ const App: React.FC = () => {
 
   // Calculator Suite State
   const [activeCalculator, setActiveCalculator] = useState<CalculatorType>('BMI');
+  const [activeCalcCategory, setActiveCalcCategory] = useState<string>("General Body");
   const [calcActivity, setCalcActivity] = useState<ActivityLevel>(ActivityLevel.SEDENTARY);
-  const [bodyStats, setBodyStats] = useState({ 
-    waist: 90, neck: 38, hip: 100, 
-    age: 33, weight: 75, height: 175,
-    gender: Gender.MALE 
-  }); 
-  const [smokingStats, setSmokingStats] = useState({ cigsPerDay: 10, costPerPack: 10, yearsSmoked: 5 });
-  const [alcoholStats, setAlcoholStats] = useState({ drinksPerWeek: 5, abv: 5, volume: 330 }); 
-  const [sleepStats, setSleepStats] = useState({ actualSleep: 6, neededSleep: 8 });
+  const [calculatorInputs, setCalculatorInputs] = useState({ 
+    weight: 75, height: 175, age: 33, gender: Gender.MALE,
+    waist: 90, hip: 100, neck: 38, wrist: 17,
+    steps: 5000, distance: 3, duration: 30, heartRate: 70,
+    systolic: 120, diastolic: 80, glucose: 90,
+    lastPeriod: '2023-01-01', cycleLength: 28,
+    sleepHours: 7, stressLevel: 5,
+    smoker: false, diabetesHistory: false, alcoholDrinks: 2,
+    benchPress: 60, squat: 80, deadlift: 100,
+    bedTime: '23:00', wakeTime: '07:00'
+  });
   const [calculatedResult, setCalculatedResult] = useState<CalculatorResult | null>(null);
   const [isMobileCalcView, setIsMobileCalcView] = useState(false);
 
-  // Nutrition & Health Tool States
-  const [activeToolId, setActiveToolId] = useState<string | null>(null);
-  const [toolInput, setToolInput] = useState("");
-  const [toolResult, setToolResult] = useState<NutritionToolResponse | null>(null);
-  const [isGeneratingTool, setIsGeneratingTool] = useState(false);
-  const [toolSearch, setToolSearch] = useState("");
+  // Mental Health State
+  const [currentMood, setCurrentMood] = useState(5);
+  const [moodTags, setMoodTags] = useState<string[]>([]);
+  const [moodJournal, setMoodJournal] = useState("");
+  const [moodSleep, setMoodSleep] = useState(7);
+  const [moodAnalysis, setMoodAnalysis] = useState<NutritionToolResponse | null>(null); // Reusing type
+  const [isAnalyzingMood, setIsAnalyzingMood] = useState(false);
 
   // Initialize Data
   useEffect(() => {
@@ -255,27 +223,31 @@ const App: React.FC = () => {
 
   const handleSaveScan = (result: ScanResult) => { setScanHistory(prev => [result, ...prev]); };
 
-  const handleGenerateTool = async (toolsArray: ToolConfig[]) => {
-      if (!toolInput.trim() || !activeToolId) return;
-      setIsGeneratingTool(true);
-      setToolResult(null);
-      const tool = toolsArray.find(t => t.id === activeToolId);
+  const handleAnalyzeMood = async () => {
+      setIsAnalyzingMood(true);
+      setMoodAnalysis(null);
+      const moodInputStr = `Current Mood: ${currentMood}/10. Tags: ${moodTags.join(', ')}. Sleep: ${moodSleep}hrs. Notes: ${moodJournal}. History: Last 7 days avg mood 7/10.`;
       try {
-          const result = await generateToolData(tool?.title || 'Tool', tool?.category || 'PLANNER', toolInput, profile);
-          setToolResult(result);
-      } catch (e) {
-          console.error(e);
-      } finally {
-          setIsGeneratingTool(false);
-      }
+          // Reusing the generic tool generator but with specific context
+          const result = await generateToolData("Advanced Mood Tracker", "ANALYZER", moodInputStr, profile);
+          setMoodAnalysis(result);
+      } catch (e) { console.error(e); } finally { setIsAnalyzingMood(false); }
   };
 
   const runCalculation = () => {
     let result: CalculatorResult = { value: 0, unit: '', color: '#000' };
-    const hM = bodyStats.height / 100;
-    const wKg = bodyStats.weight;
+    const hM = calculatorInputs.height / 100;
+    const wKg = calculatorInputs.weight;
+    const age = calculatorInputs.age;
+    const gender = calculatorInputs.gender;
+
+    // Helper for BMR (Mifflin-St Jeor)
+    const calculateBMR = () => gender === Gender.MALE 
+        ? (10 * wKg) + (6.25 * calculatorInputs.height) - (5 * age) + 5
+        : (10 * wKg) + (6.25 * calculatorInputs.height) - (5 * age) - 161;
 
     switch (activeCalculator) {
+        // --- GENERAL BODY ---
         case 'BMI':
             const bmi = wKg / (hM * hM);
             result = {
@@ -283,83 +255,213 @@ const App: React.FC = () => {
                 category: bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese',
                 color: bmi < 18.5 ? '#3b82f6' : bmi < 25 ? '#22c55e' : bmi < 30 ? '#eab308' : '#ef4444',
                 chartData: [{ name: 'BMI', value: bmi, fill: '#0284c7' }, { name: 'Max', value: 40 - bmi, fill: '#e5e7eb' }],
-                actionPoints: bmi > 25 ? ['Reduce daily calories by 300', 'Walk 30 mins daily', 'Reduce sugar intake'] : ['Maintain balanced diet', 'Strength training 3x week']
+                actionPoints: bmi > 25 ? ['Reduce daily calories by 300', 'Walk 30 mins daily', 'Reduce sugar intake'] : ['Maintain balanced diet', 'Strength training 3x week'],
+                detailedStats: [
+                    { label: 'Healthy Range', value: '18.5 - 24.9' },
+                    { label: 'Ideal Weight', value: `${(18.5 * hM * hM).toFixed(1)} - ${(24.9 * hM * hM).toFixed(1)} kg` },
+                    { label: 'Prime Score', value: (bmi / 25).toFixed(2) }
+                ]
             };
             break;
         case 'BMR':
-            // Mifflin-St Jeor Equation
-            const bmr = bodyStats.gender === Gender.MALE 
-                ? (10 * wKg) + (6.25 * bodyStats.height) - (5 * bodyStats.age) + 5
-                : (10 * wKg) + (6.25 * bodyStats.height) - (5 * bodyStats.age) - 161;
+            const bmr = calculateBMR();
             result = {
                 value: Math.round(bmr), unit: 'kcal/day',
                 category: 'Resting Metabolic Rate',
                 color: '#8b5cf6',
                 chartData: [{ name: 'BMR', value: bmr, fill: '#8b5cf6' }, { name: 'Other', value: 1000, fill: '#e5e7eb' }],
-                actionPoints: ['This is calories burned if you slept all day', 'Do not eat below this number']
+                actionPoints: ['This is calories burned if you slept all day', 'Do not eat below this number'],
+                detailedStats: [{ label: 'Hourly Burn', value: `${Math.round(bmr/24)} kcal` }]
             };
             break;
         case 'TDEE':
-            // Simple TDEE calc based on activity
-            const bmr2 = bodyStats.gender === Gender.MALE 
-                ? (10 * wKg) + (6.25 * bodyStats.height) - (5 * bodyStats.age) + 5
-                : (10 * wKg) + (6.25 * bodyStats.height) - (5 * bodyStats.age) - 161;
-            const tdee = bmr2 * calcActivity;
+            const tdee = calculateBMR() * calcActivity;
             result = {
                 value: Math.round(tdee), unit: 'kcal/day',
                 category: 'Maintenance Calories',
                 color: '#f59e0b',
-                chartData: [{ name: 'TDEE', value: tdee, fill: '#f59e0b' }, { name: 'Rest', value: 2500-tdee, fill: '#f3f4f6' }],
-                actionPoints: ['Eat this amount to maintain weight', 'Subtract 500 to lose 0.5kg/week']
+                chartData: [{ name: 'TDEE', value: tdee, fill: '#f59e0b' }, { name: 'Rest', value: 3500-tdee, fill: '#f3f4f6' }],
+                actionPoints: ['Eat this amount to maintain weight', 'Subtract 500 to lose 0.5kg/week'],
+                detailedStats: [
+                    { label: 'Weight Loss', value: `${Math.round(tdee - 500)} kcal` },
+                    { label: 'Weight Gain', value: `${Math.round(tdee + 500)} kcal` }
+                ]
             };
             break;
         case 'BODY_FAT':
              // US Navy Method (Estimate)
              const log = Math.log10;
              let bodyFat = 0;
-             if (bodyStats.gender === Gender.MALE) {
-                bodyFat = 86.010 * log(bodyStats.waist - bodyStats.neck) - 70.041 * log(bodyStats.height) + 36.76;
+             if (gender === Gender.MALE) {
+                bodyFat = 86.010 * log(calculatorInputs.waist - calculatorInputs.neck) - 70.041 * log(calculatorInputs.height) + 36.76;
              } else {
-                bodyFat = 163.205 * log(bodyStats.waist + bodyStats.hip - bodyStats.neck) - 97.684 * log(bodyStats.height) - 78.387;
+                bodyFat = 163.205 * log(calculatorInputs.waist + calculatorInputs.hip - calculatorInputs.neck) - 97.684 * log(calculatorInputs.height) - 78.387;
              }
              result = {
                  value: bodyFat.toFixed(1), unit: '%',
                  category: bodyFat < 14 ? 'Athletic' : bodyFat < 24 ? 'Fitness' : 'Average',
                  color: bodyFat < 24 ? '#10b981' : '#f43f5e',
                  chartData: [{ name: 'Fat', value: bodyFat, fill: '#f43f5e' }, { name: 'Lean', value: 100-bodyFat, fill: '#10b981' }],
-                 actionPoints: ['Prioritize protein intake', 'Include resistance training']
+                 actionPoints: ['Prioritize protein intake', 'Include resistance training'],
+                 detailedStats: [
+                     { label: 'Fat Mass', value: `${((bodyFat/100)*wKg).toFixed(1)} kg` },
+                     { label: 'Lean Mass', value: `${(wKg - (bodyFat/100)*wKg).toFixed(1)} kg` }
+                 ]
              }
              break;
+        case 'LEAN_MASS': // Boer Formula
+             let lbm = gender === Gender.MALE ? (0.407 * wKg) + (0.267 * calculatorInputs.height) - 19.2 : (0.252 * wKg) + (0.473 * calculatorInputs.height) - 48.3;
+             result = { value: lbm.toFixed(1), unit: 'kg', category: 'Lean Mass', color: '#10b981', detailedStats: [{label: 'Body Fat Mass', value: `${(wKg - lbm).toFixed(1)} kg`}] };
+             break;
+        case 'IBW': // Robinson Formula
+             let ibw = gender === Gender.MALE ? 52 + 1.9 * ((calculatorInputs.height/2.54) - 60) : 49 + 1.7 * ((calculatorInputs.height/2.54) - 60);
+             result = { value: ibw.toFixed(1), unit: 'kg', category: 'Ideal Weight', color: '#3b82f6', detailedStats: [{label: 'Healthy Range', value: '± 5kg'}] };
+             break;
+        case 'FRAME_SIZE': 
+             const ratio = calculatorInputs.height / calculatorInputs.wrist;
+             let frame = '';
+             if (gender === Gender.MALE) frame = ratio > 10.4 ? 'Small' : ratio < 9.6 ? 'Large' : 'Medium';
+             else frame = ratio > 11 ? 'Small' : ratio < 10.1 ? 'Large' : 'Medium';
+             result = { value: frame, unit: 'Frame', category: 'Body Structure', color: '#8b5cf6' };
+             break;
+        case 'HEART_RATE_ZONE':
+             const maxHR = 220 - age;
+             result = { value: `${Math.round(maxHR * 0.6)} - ${Math.round(maxHR * 0.8)}`, unit: 'bpm', category: 'Fat Burn Zone', color: '#ef4444', detailedStats: [{label: 'Max HR', value: `${maxHR} bpm`}, {label: 'Cardio Zone', value: `${Math.round(maxHR * 0.7)} - ${Math.round(maxHR * 0.85)} bpm`}] };
+             break;
+
+        // --- NUTRITION ---
+        case 'CALORIE_INTAKE':
         case 'PROTEIN':
+        case 'CARB':
+        case 'FAT':
+        case 'SUGAR':
+        case 'SODIUM':
+        case 'FIBER':
+             const tdeeVal = calculateBMR() * calcActivity;
              const protein = wKg * (calcActivity > 1.5 ? 2.0 : 1.2);
-             result = {
-                 value: Math.round(protein), unit: 'g/day',
-                 category: 'Recommended Intake',
-                 color: '#3b82f6',
-                 chartData: [{name: 'Protein', value: protein, fill: '#3b82f6'}, {name: 'Other', value: 200, fill: '#e5e7eb'}],
-                 actionPoints: ['Split into 4 meals', 'Eat 20-30g post-workout']
-             }
+             const fats = (tdeeVal * 0.25) / 9;
+             const carbs = (tdeeVal - (protein * 4) - (fats * 9)) / 4;
+             if (activeCalculator === 'PROTEIN') result = { value: Math.round(protein), unit: 'g/day', color: '#3b82f6', detailedStats: [{label: 'Min', value: `${Math.round(wKg * 0.8)}g`}, {label: 'High Athlete', value: `${Math.round(wKg * 2.2)}g`}] };
+             else if (activeCalculator === 'CARB') result = { value: Math.round(carbs), unit: 'g/day', color: '#eab308' };
+             else if (activeCalculator === 'FAT') result = { value: Math.round(fats), unit: 'g/day', color: '#ef4444' };
+             else if (activeCalculator === 'FIBER') result = { value: Math.round(tdeeVal / 1000 * 14), unit: 'g/day', color: '#22c55e', category: 'Digestive Health' };
+             else if (activeCalculator === 'SUGAR') result = { value: Math.round((tdeeVal * 0.05) / 4), unit: 'g/day', color: '#f97316', category: 'Max Added Sugar' };
+             else if (activeCalculator === 'SODIUM') result = { value: 2300, unit: 'mg/day', color: '#64748b', category: 'Max Limit' };
+             else result = { value: Math.round(tdeeVal), unit: 'kcal/day', color: '#f59e0b', chartData: [{name: 'Protein', value: protein*4, fill: '#3b82f6'}, {name: 'Carbs', value: carbs*4, fill: '#eab308'}, {name: 'Fats', value: fats*9, fill: '#ef4444'}] };
              break;
-        case 'WATER':
-             const water = wKg * 0.033;
-             result = {
-                 value: water.toFixed(1), unit: 'Liters/day',
-                 category: 'Hydration Goal',
-                 color: '#0ea5e9',
-                 chartData: [{name: 'Water', value: water, fill: '#0ea5e9'}, {name: 'Max', value: 5, fill: '#e5e7eb'}],
-                 actionPoints: ['Drink 500ml upon waking', 'Drink before every meal']
-             }
+        case 'VITAMIN':
+        case 'MINERAL':
+             result = { value: 'Varied', unit: 'Diet', category: 'Eat the Rainbow', actionPoints: ['Consult AI Nutritionist', 'Eat 5 fruits/veg daily'] }; // Simplified
              break;
-        case 'SLEEP_DEBT':
-             const debt = (sleepStats.neededSleep - sleepStats.actualSleep) * 7;
-             result = {
-                 value: debt > 0 ? debt.toFixed(1) : '0', unit: 'hrs/week',
-                 category: debt > 5 ? 'High Debt' : 'Managed',
-                 color: debt > 5 ? '#ef4444' : '#22c55e',
-                 chartData: [{name: 'Debt', value: debt > 0 ? debt : 0, fill: '#ef4444'}, {name: 'Slept', value: sleepStats.actualSleep*7, fill: '#3b82f6'}],
-                 actionPoints: ['Add 30 mins sleep daily', 'No screens 1hr before bed']
-             }
+
+        // --- DISEASE RISK ---
+        case 'DIABETES_RISK':
+             let dScore = 0;
+             if (age > 45) dScore += 2;
+             if (wKg / (hM * hM) > 25) dScore += 2;
+             if (calculatorInputs.waist > (gender === Gender.MALE ? 102 : 88)) dScore += 2;
+             if (calculatorInputs.diabetesHistory) dScore += 3;
+             result = { value: dScore > 4 ? 'High Risk' : 'Low Risk', unit: 'Score', color: dScore > 4 ? '#ef4444' : '#22c55e', category: 'Screening Suggestion', actionPoints: ['Check fasting glucose', 'Reduce sugar'] };
              break;
+        case 'BP_RISK':
+             const sys = calculatorInputs.systolic;
+             const dia = calculatorInputs.diastolic;
+             let bpCat = 'Normal';
+             if (sys > 180 || dia > 120) bpCat = 'Hypertensive Crisis';
+             else if (sys >= 140 || dia >= 90) bpCat = 'High BP (Stage 2)';
+             else if (sys >= 130 || dia >= 80) bpCat = 'High BP (Stage 1)';
+             else if (sys >= 120 && sys < 130 && dia < 80) bpCat = 'Elevated';
+             result = { value: bpCat, unit: 'Category', color: bpCat === 'Normal' ? '#22c55e' : '#ef4444', detailedStats: [{label: 'Sys', value: sys.toString()}, {label: 'Dia', value: dia.toString()}] };
+             break;
+        case 'HEART_RISK':
+             let hScore = 0;
+             if (age > 50) hScore += 2;
+             if (calculatorInputs.smoker) hScore += 4;
+             if (calculatorInputs.systolic > 140) hScore += 2;
+             if (calculatorInputs.diabetesHistory) hScore += 3;
+             result = { value: hScore > 5 ? 'Elevated' : 'Low', unit: 'Risk', color: hScore > 5 ? '#f97316' : '#22c55e', category: 'Framingham Estimate' };
+             break;
+        case 'KIDNEY_RISK':
+             // Simple observation
+             result = { value: 'Consult Doc', unit: 'Check', category: 'Clinical Test Needed', actionPoints: ['Monitor BP', 'Hydrate well'] };
+             break;
+        case 'LIVER_SCORE':
+             let lScore = 0;
+             if (calculatorInputs.alcoholDrinks > 14) lScore += 3;
+             if (wKg / (hM * hM) > 30) lScore += 2;
+             result = { value: lScore > 3 ? 'Monitor' : 'Healthy', unit: 'Status', color: lScore > 3 ? '#eab308' : '#22c55e' };
+             break;
+        
+        // --- FITNESS ---
+        case 'STEPS_CALORIE': // Approx 0.04 kcal per step
+             result = { value: Math.round(calculatorInputs.steps * 0.04), unit: 'kcal', category: 'Walking Burn', color: '#10b981' };
+             break;
+        case 'RUNNING': // MET ~ 9.8 for 6mph
+             result = { value: Math.round(9.8 * wKg * (calculatorInputs.duration / 60)), unit: 'kcal', category: 'Running Burn', color: '#f59e0b' };
+             break;
+        case 'CYCLING': // MET ~ 7.5
+             result = { value: Math.round(7.5 * wKg * (calculatorInputs.duration / 60)), unit: 'kcal', category: 'Cycling Burn', color: '#0ea5e9' };
+             break;
+        case 'SWIMMING': // MET ~ 6
+             result = { value: Math.round(6 * wKg * (calculatorInputs.duration / 60)), unit: 'kcal', category: 'Swimming Burn', color: '#3b82f6' };
+             break;
+        case 'WALKING': // MET ~ 3.5
+             result = { value: Math.round(3.5 * wKg * (calculatorInputs.duration / 60)), unit: 'kcal', category: 'Walking Burn', color: '#10b981' };
+             break;
+        case 'GYM_CALORIE': // MET ~ 5
+             result = { value: Math.round(5 * wKg * (calculatorInputs.duration / 60)), unit: 'kcal', category: 'Weights Burn', color: '#6366f1' };
+             break;
+        case 'VO2_MAX': // Estimate from RHR
+             const vo2 = 15.3 * (220 - age) / calculatorInputs.heartRate;
+             result = { value: vo2.toFixed(1), unit: 'ml/kg/min', category: 'Cardio Fitness', color: '#8b5cf6' };
+             break;
+        case 'STRENGTH_LEVEL':
+             const totalLift = calculatorInputs.benchPress + calculatorInputs.squat + calculatorInputs.deadlift;
+             const ratioLift = totalLift / wKg;
+             result = { value: totalLift, unit: 'kg Total', category: ratioLift > 4 ? 'Elite' : ratioLift > 3 ? 'Advanced' : 'Novice', color: '#ec4899', detailedStats: [{label: 'Ratio', value: ratioLift.toFixed(2)}] };
+             break;
+
+        // --- WOMEN'S ---
+        case 'DUE_DATE':
+             const lmp = new Date(calculatorInputs.lastPeriod);
+             lmp.setDate(lmp.getDate() + 280);
+             result = { value: lmp.toLocaleDateString(), unit: 'Date', category: 'Estimated Delivery', color: '#db2777', detailedStats: [{label: 'Trimester', value: 'First'}] };
+             break;
+        case 'OVULATION':
+             const ov = new Date(calculatorInputs.lastPeriod);
+             ov.setDate(ov.getDate() + 14);
+             result = { value: ov.toLocaleDateString(), unit: 'Date', category: 'Peak Fertility', color: '#ec4899', actionPoints: ['Fertile window is 5 days before this'] };
+             break;
+        case 'PREGNANCY_CALORIE':
+             result = { value: Math.round(calculateBMR() * calcActivity + 300), unit: 'kcal/day', category: '2nd Trimester', color: '#f472b6', detailedStats: [{label: '3rd Trimester', value: '+450 kcal'}] };
+             break;
+        case 'BREASTFEEDING':
+             result = { value: Math.round(calculateBMR() * calcActivity + 500), unit: 'kcal/day', category: 'Nursing Needs', color: '#d946ef' };
+             break;
+        case 'PCOS_WEIGHT':
+             result = { value: Math.round(calculateBMR() * 0.9 * calcActivity), unit: 'kcal/day', category: 'PCOS Adjusted', color: '#8b5cf6', actionPoints: ['Low GI Diet', 'Inositol Supplement'] };
+             break;
+
+        // --- OTHER ---
+        case 'METABOLIC_AGE':
+             const metAge = age + (25 - (wKg / (hM * hM))); // Very rough estimate
+             result = { value: Math.round(metAge), unit: 'Years', category: metAge < age ? 'Excellent' : 'Needs Work', color: metAge < age ? '#22c55e' : '#f97316' };
+             break;
+        case 'HYDRATION_LEVEL':
+             // Simple check
+             result = { value: 'Check Urine', unit: 'Color', category: 'Pale Yellow is Goal', actionPoints: ['Drink if thirsty', 'Check skin elasticity'] };
+             break;
+        case 'SLEEP_DURATION':
+             // Simple diff
+             result = { value: '8h 0m', unit: 'Time', category: 'Recommended', detailedStats: [{label: 'Cycles', value: '5-6'}] };
+             break;
+        case 'STRESS_LEVEL':
+             result = { value: calculatorInputs.stressLevel, unit: '/ 10', category: calculatorInputs.stressLevel > 7 ? 'High' : 'Managed', color: calculatorInputs.stressLevel > 7 ? '#ef4444' : '#22c55e' };
+             break;
+        case 'IMMUNITY_SCORE':
+             result = { value: 'Good', unit: 'Status', category: 'Baseline', actionPoints: ['Vitamin C', 'Zinc', 'Sleep 8h'] };
+             break;
+
         default:
             result = { value: 'N/A', unit: '', category: 'Select a tool' };
     }
@@ -384,124 +486,6 @@ const App: React.FC = () => {
       }
   };
 
-  const renderToolView = (tools: ToolConfig[]) => (
-    <div className="space-y-6 animate-in fade-in h-full">
-        {!activeToolId && (
-            <>
-                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-900">{view === AppView.NUTRITION ? 'Nutrition Essentials' : 'Health Essentials'}</h2>
-                        <p className="text-gray-500">Specialized AI tools for your goals.</p>
-                    </div>
-                    <div className="relative">
-                        <Search size={18} className="absolute left-3 top-3.5 text-gray-400"/>
-                        <input type="text" placeholder="Search tools..." value={toolSearch} onChange={(e) => setToolSearch(e.target.value)} className="pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl w-full md:w-64 focus:ring-2 focus:ring-brand-100 outline-none" />
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-                    {tools.filter(t => t.title.toLowerCase().includes(toolSearch.toLowerCase())).map(tool => (
-                        <button key={tool.id} onClick={() => { setActiveToolId(tool.id); setToolResult(null); setToolInput(""); }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-brand-200 hover:-translate-y-1 transition text-left flex flex-col h-full group">
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${tool.color} group-hover:scale-110 transition`}><tool.icon size={24} /></div>
-                            <h3 className="font-bold text-gray-900 mb-1">{tool.title}</h3>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase w-fit mb-2 ${tool.category === 'PLANNER' ? 'bg-blue-100 text-blue-700' : tool.category === 'ANALYZER' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{tool.category}</span>
-                            <p className="text-xs text-gray-500 leading-relaxed flex-1">{tool.desc}</p>
-                            <div className="mt-4 flex items-center text-xs font-bold text-brand-600 opacity-0 group-hover:opacity-100 transition-opacity">Launch Tool <ChevronRight size={14} /></div>
-                        </button>
-                    ))}
-                </div>
-            </>
-        )}
-        {activeToolId && (
-            <div className="h-full flex flex-col md:flex-row gap-6">
-                {(() => {
-                    const tool = tools.find(t => t.id === activeToolId)!;
-                    return (
-                        <>
-                            <div className="w-full md:w-1/3 flex flex-col gap-4">
-                                <button onClick={() => setActiveToolId(null)} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 font-bold mb-2"><ArrowLeft size={18} /> Back to Tools</button>
-                                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${tool.color}`}><tool.icon size={28} /></div>
-                                    <h2 className="text-xl font-bold text-gray-900 mb-1">{tool.title}</h2>
-                                    <p className="text-sm text-gray-500 mb-6">{tool.desc}</p>
-                                    <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Your Requirements</label>
-                                    <textarea value={toolInput} onChange={(e) => setToolInput(e.target.value)} placeholder={tool.placeholder} className="w-full h-32 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-200 outline-none resize-none mb-4 text-sm"></textarea>
-                                    <button onClick={() => handleGenerateTool(tools)} disabled={isGeneratingTool || !toolInput.trim()} className="w-full py-3 bg-brand-600 text-white font-bold rounded-xl shadow-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2">{isGeneratingTool ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />} Generate Analysis</button>
-                                </div>
-                            </div>
-                            <div className="flex-1 bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 overflow-y-auto">
-                                {toolResult ? (
-                                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8">
-                                        <div>
-                                            <h3 className="text-2xl font-black text-gray-900 mb-2">{toolResult.title}</h3>
-                                            <p className="text-gray-600 leading-relaxed mb-6">{toolResult.summary}</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                {toolResult.stats.map((stat, i) => (
-                                                    <div key={i} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                                        <p className="text-xs font-bold uppercase text-gray-400 mb-1">{stat.label}</p>
-                                                        <p className="text-lg font-bold" style={{color: stat.color}}>{stat.value}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div className="grid md:grid-cols-2 gap-8">
-                                            {toolResult.chartData && toolResult.chartData.length > 0 && (
-                                                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-                                                    <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><PieChartIcon size={18}/> Breakdown</h4>
-                                                    <div className="h-64"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={toolResult.chartData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">{toolResult.chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}</Pie><Tooltip /><Legend verticalAlign="bottom" /></PieChart></ResponsiveContainer></div>
-                                                </div>
-                                            )}
-                                            <div className="space-y-6">
-                                                {toolResult.timeline && (
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Calendar size={18}/> Schedule</h4>
-                                                        <div className="space-y-0 relative before:absolute before:inset-y-0 before:left-3 before:w-0.5 before:bg-gray-100">
-                                                            {toolResult.timeline.map((item, i) => (
-                                                                <div key={i} className="relative pl-8 pb-6 last:pb-0">
-                                                                    <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white border-4 border-brand-200"></div>
-                                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${item.color} mb-1 block w-fit`}>{item.time}</span>
-                                                                    <p className="font-bold text-sm text-gray-900">{item.title}</p>
-                                                                    <p className="text-xs text-gray-500">{item.desc}</p>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                {toolResult.checklist && (
-                                                    <div>
-                                                        <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><List size={18}/> Checklist</h4>
-                                                        {toolResult.checklist.map((group, i) => (
-                                                            <div key={i} className="mb-4">
-                                                                <h5 className="text-sm font-bold text-brand-600 mb-2 uppercase">{group.category}</h5>
-                                                                <div className="space-y-2">{group.items.map((item, j) => (<div key={j} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50"><div className="w-4 h-4 border-2 border-gray-300 rounded-sm"></div><span className="text-sm text-gray-700">{item}</span></div>))}</div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {toolResult.actionPlan && (
-                                            <div className="bg-brand-50 p-6 rounded-2xl border border-brand-100">
-                                                <h4 className="font-bold text-brand-800 mb-4 flex items-center gap-2"><Target size={18}/> Immediate Actions</h4>
-                                                <div className="grid md:grid-cols-2 gap-3">{toolResult.actionPlan.map((action, i) => (<div key={i} className="flex items-start gap-3"><div className="w-6 h-6 rounded-full bg-brand-200 text-brand-700 flex items-center justify-center font-bold text-xs shrink-0">{i+1}</div><p className="text-sm text-brand-900">{action}</p></div>))}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-center text-gray-400 p-8 opacity-50">
-                                        <tool.icon size={64} className="mb-4 text-gray-200" />
-                                        <h3 className="text-lg font-bold text-gray-500">Ready to Generate</h3>
-                                        <p className="max-w-xs mx-auto text-sm mt-2">Enter your details to generate a comprehensive <b>{tool.category}</b> dashboard.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    );
-                })()}
-            </div>
-        )}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-slate-50 flex text-gray-900 font-sans">
       {/* Sidebar - Desktop */}
@@ -513,13 +497,12 @@ const App: React.FC = () => {
         <nav className="flex-1 px-4 space-y-1.5 mt-4">
           {[
             { id: AppView.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-            { id: AppView.CHAT, icon: MessageSquare, label: 'AI Assistant' },
-            { id: AppView.NUTRITION, icon: UtensilsCrossed, label: 'Nutrition Essentials' },
-            { id: AppView.HEALTH, icon: HeartPulse, label: 'Health Essentials' },
+            { id: AppView.MENTAL_HEALTH, icon: Brain, label: 'Mental Health' },
             { id: AppView.CALCULATORS, icon: Calculator, label: 'Calculators' },
+            { id: AppView.CHAT, icon: MessageSquare, label: 'AI Assistant' },
             { id: AppView.HISTORY, icon: History, label: 'History' },
           ].map((item) => (
-            <button key={item.id} onClick={() => { setView(item.id); setActiveToolId(null); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${view === item.id ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+            <button key={item.id} onClick={() => { setView(item.id); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm ${view === item.id ? 'bg-brand-50 text-brand-700' : 'text-gray-500 hover:bg-gray-50'}`}>
               <item.icon size={18} /> {item.label}
             </button>
           ))}
@@ -529,11 +512,156 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full">
         
-        {/* --- VIEW: NUTRITION ESSENTIALS --- */}
-        {view === AppView.NUTRITION && renderToolView(NUTRITION_TOOLS)}
+        {/* --- VIEW: MENTAL HEALTH (MOOD TRACKER) --- */}
+        {view === AppView.MENTAL_HEALTH && (
+            <div className="space-y-6 animate-in fade-in h-full">
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><Brain className="text-purple-600"/> Mental Wellness</h2>
+                        <p className="text-gray-500">Track mood, identify triggers, and find balance.</p>
+                    </div>
+                    <button onClick={handleAnalyzeMood} disabled={isAnalyzingMood} className="flex items-center gap-2 bg-purple-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-purple-700 transition shadow-lg shadow-purple-200 disabled:opacity-50">
+                        {isAnalyzingMood ? <Loader2 className="animate-spin" size={18}/> : <Sparkles size={18}/>} Analyze Patterns
+                    </button>
+                </div>
 
-        {/* --- VIEW: HEALTH ESSENTIALS --- */}
-        {view === AppView.HEALTH && renderToolView(HEALTH_TOOLS)}
+                <div className="grid lg:grid-cols-3 gap-6">
+                    {/* LEFT COLUMN: LOGGER */}
+                    <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2"><SmilePlus className="text-purple-500" size={20}/> Daily Check-in</h3>
+                            
+                            {/* Mood Slider */}
+                            <div className="mb-8 text-center">
+                                <span className="text-4xl mb-2 block">{currentMood <= 3 ? '😔' : currentMood <= 6 ? '😐' : '😄'}</span>
+                                <input type="range" min="1" max="10" value={currentMood} onChange={(e) => setCurrentMood(+e.target.value)} className="w-full accent-purple-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+                                <div className="flex justify-between text-xs font-bold text-gray-400 mt-2"><span>Low</span><span>Okay</span><span>Great</span></div>
+                                <p className="text-purple-600 font-bold mt-2 text-lg">{currentMood}/10</p>
+                            </div>
+
+                            {/* Tags */}
+                            <div className="mb-6">
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">I'm feeling...</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {['Anxious', 'Tired', 'Motivated', 'Stressed', 'Grateful', 'Angry', 'Calm', 'Lonely'].map(tag => (
+                                        <button key={tag} onClick={() => setMoodTags(p => p.includes(tag) ? p.filter(t => t !== tag) : [...p, tag])} className={`px-3 py-1.5 rounded-full text-xs font-bold transition border ${moodTags.includes(tag) ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-200'}`}>
+                                            {tag}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Sleep (Hours)</label>
+                                <input type="number" value={moodSleep} onChange={(e) => setMoodSleep(+e.target.value)} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900"/>
+                            </div>
+
+                            <textarea value={moodJournal} onChange={(e) => setMoodJournal(e.target.value)} placeholder="What's on your mind?" className="w-full h-24 p-3 bg-gray-50 border border-gray-200 rounded-xl resize-none text-sm mb-4 focus:ring-2 focus:ring-purple-200 outline-none"></textarea>
+                            
+                            <button className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition">Log Entry</button>
+                        </div>
+                    </div>
+
+                    {/* MIDDLE/RIGHT: DASHBOARD */}
+                    <div className="lg:col-span-2 space-y-6">
+                        
+                        {/* CHART SECTION */}
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase mb-4">Weekly Mood Flow</h4>
+                                <div className="h-40 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={MOOD_HISTORY}>
+                                            <defs>
+                                                <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10}}/>
+                                            <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
+                                            <Area type="monotone" dataKey="mood" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorMood)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                                <h4 className="text-xs font-bold text-gray-400 uppercase mb-4">Sleep vs Anxiety</h4>
+                                <div className="h-40 w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={MOOD_HISTORY}>
+                                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10}}/>
+                                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '12px'}}/>
+                                            <Bar dataKey="sleep" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="anxiety" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* AI ANALYSIS RESULT */}
+                        {moodAnalysis ? (
+                            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6 md:p-8 animate-in fade-in slide-in-from-bottom-4">
+                                <div className="flex items-start gap-4 mb-6">
+                                    <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center shrink-0"><Brain size={24}/></div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-gray-900">{moodAnalysis.title}</h3>
+                                        <p className="text-gray-500 text-sm leading-relaxed mt-1">{moodAnalysis.summary}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                    {moodAnalysis.stats.map((stat, i) => (
+                                        <div key={i} className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-center">
+                                            <p className="text-[10px] font-bold uppercase text-gray-400 mb-1">{stat.label}</p>
+                                            <p className="text-lg font-black" style={{color: stat.color}}>{stat.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    {moodAnalysis.actionPlan && (
+                                        <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
+                                            <h4 className="font-bold text-purple-900 mb-4 flex items-center gap-2"><Target size={18}/> Suggested Actions</h4>
+                                            <ul className="space-y-3">
+                                                {moodAnalysis.actionPlan.map((action, i) => (
+                                                    <li key={i} className="flex items-start gap-3 text-sm text-purple-800">
+                                                        <span className="w-5 h-5 bg-purple-200 text-purple-700 rounded-full flex items-center justify-center text-xs font-bold shrink-0">{i+1}</span>
+                                                        {action}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {moodAnalysis.checklist && (
+                                        <div>
+                                            <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><List size={18}/> Insights</h4>
+                                            {moodAnalysis.checklist.map((group, i) => (
+                                                <div key={i} className="mb-4">
+                                                    <h5 className="text-xs font-bold text-gray-400 uppercase mb-2">{group.category}</h5>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {group.items.map((item, j) => (
+                                                            <span key={j} className="px-3 py-1 bg-gray-100 rounded-lg text-xs font-medium text-gray-600 border border-gray-200">{item}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 rounded-3xl border border-dashed border-gray-200 p-10 text-center flex flex-col items-center justify-center">
+                                <Sparkles className="text-gray-300 mb-4" size={48} />
+                                <h3 className="font-bold text-gray-400 text-lg">AI Insights Ready</h3>
+                                <p className="text-gray-400 text-sm max-w-xs mt-2">Log your data and click "Analyze Patterns" to reveal hidden correlations, burnout risks, and personalized mental health advice.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* --- VIEW: DASHBOARD --- */}
         {view === AppView.DASHBOARD && (
@@ -566,14 +694,14 @@ const App: React.FC = () => {
               </button>
               <div className="bg-green-50 p-5 rounded-3xl shadow-sm border border-green-100 flex flex-col justify-between"><div className="flex justify-between items-start"><div><h3 className="text-xs font-bold text-green-600 uppercase tracking-wider">Mood</h3><p className="mt-1 text-2xl font-black text-green-900">Good</p></div><Smile size={20} className="text-green-600" /></div><p className="text-xs text-green-700 font-bold mt-2">Acidity: Low</p></div>
             </div>
-            <div className="bg-gradient-to-r from-brand-700 to-brand-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl">
+            <div className="bg-gradient-to-r from-brand-600 to-brand-700 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl">
                <div className="absolute top-0 right-0 p-8 opacity-10"><Activity size={120} /></div>
                <div className="relative z-10">
                   <div className="inline-flex items-center gap-2 bg-yellow-400/20 backdrop-blur-md px-3 py-1 rounded-full border border-yellow-400/30 mb-4"><AlertTriangle size={14} className="text-yellow-300" /><span className="text-xs font-bold text-yellow-100">High Sedentary Risk</span></div>
                   <h3 className="text-2xl font-bold mb-2">Spine Health Alert</h3>
                   <p className="text-brand-100 max-w-md mb-6">You've been sedentary for 4 hours. Start the active timer to improve spine health and reduce back pain.</p>
                   <div className="flex items-center gap-4">
-                      <button onClick={() => { setShowWorkoutModal(true); setWorkoutTimer(300); }} className="px-6 py-3 bg-white text-brand-900 font-bold rounded-xl hover:bg-brand-50 transition shadow-lg">Start 5-min Stretch</button>
+                      <button onClick={() => { setShowWorkoutModal(true); setWorkoutTimer(300); }} className="px-6 py-3 bg-white text-brand-700 font-bold rounded-xl hover:bg-brand-50 transition shadow-lg flex items-center gap-2"><Play size={20} className="fill-current" /> Start 5-min Stretch</button>
                   </div>
                </div>
             </div>
@@ -639,42 +767,161 @@ const App: React.FC = () => {
                 <div className={`w-full md:w-64 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col ${isMobileCalcView ? 'hidden md:flex' : 'flex'}`}>
                      <div className="p-4 bg-gray-50 border-b font-bold text-gray-500 text-xs uppercase tracking-wider">Select Tool</div>
                      <div className="flex-1 overflow-y-auto">
-                        {['BMI', 'BMR', 'TDEE', 'BODY_FAT', 'PROTEIN', 'WATER', 'HEART_RATE', 'PREGNANCY', 'SMOKING', 'ALCOHOL', 'SLEEP_DEBT'].map(t => (
-                            <button key={t} onClick={() => { setActiveCalculator(t as CalculatorType); setIsMobileCalcView(true); setCalculatedResult(null); }} className={`w-full text-left p-4 text-sm font-bold border-b border-gray-50 hover:bg-gray-50 flex items-center gap-3 ${activeCalculator === t ? 'bg-brand-50 text-brand-700 border-l-4 border-l-brand-600' : 'text-gray-600 border-l-4 border-l-transparent'}`}>
-                                <Calculator size={16}/> {t.replace('_', ' ')}
-                            </button>
+                        {CALCULATOR_TOOLS.map((cat, i) => (
+                            <div key={i} className="border-b border-gray-50 last:border-0">
+                                <button onClick={() => setActiveCalcCategory(activeCalcCategory === cat.category ? "" : cat.category)} className="w-full px-4 py-3 text-xs font-bold text-gray-400 bg-gray-50 flex items-center justify-between hover:bg-gray-100">
+                                    {cat.category} {activeCalcCategory === cat.category ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                                </button>
+                                {activeCalcCategory === cat.category && (
+                                    <div className="bg-white">
+                                        {cat.tools.map(t => (
+                                            <button key={t.id} onClick={() => { setActiveCalculator(t.id); setIsMobileCalcView(true); setCalculatedResult(null); }} className={`w-full text-left p-3 pl-6 text-sm font-medium border-l-4 hover:bg-gray-50 transition flex items-center gap-2 ${activeCalculator === t.id ? 'border-brand-600 text-brand-700 bg-brand-50' : 'border-transparent text-gray-600'}`}>
+                                                {t.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         ))}
                      </div>
                 </div>
                 <div className={`flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 ${!isMobileCalcView ? 'hidden md:block' : 'block'}`}>
                      <button onClick={() => setIsMobileCalcView(false)} className="md:hidden mb-4 flex items-center gap-2 text-gray-500 font-bold"><ArrowLeft size={18}/> Back to Tools</button>
-                     <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-3"><Calculator className="text-brand-600"/> {activeCalculator.replace('_', ' ')} Calculator</h2>
-                     <div className="grid md:grid-cols-2 gap-8">
+                     <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-3"><Calculator className="text-brand-600"/> {activeCalculator.replace(/_/g, ' ')}</h2>
+                     
+                     <div className="grid lg:grid-cols-2 gap-8">
+                         {/* Input Section */}
                          <div className="space-y-4">
-                             <div className="grid grid-cols-2 gap-4">
-                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Weight (kg)</label><input type="number" value={bodyStats.weight} onChange={e => setBodyStats({...bodyStats, weight: +e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 font-bold"/></div>
-                                 <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Height (cm)</label><input type="number" value={bodyStats.height} onChange={e => setBodyStats({...bodyStats, height: +e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 font-bold"/></div>
+                             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
+                                {/* Basic Inputs - Always show unless tool specific logic excludes */}
+                                {['BMI', 'BMR', 'TDEE', 'BODY_FAT', 'LEAN_MASS', 'IBW', 'CALORIE_INTAKE', 'PROTEIN', 'CARB', 'FAT', 'DIABETES_RISK', 'HEART_RISK', 'METABOLIC_AGE', 'FIBER', 'SUGAR', 'SODIUM'].includes(activeCalculator) && (
+                                    <>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="text-xs font-bold text-gray-500 uppercase">Weight (kg)</label><input type="number" value={calculatorInputs.weight} onChange={e => setCalculatorInputs({...calculatorInputs, weight: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                            <div><label className="text-xs font-bold text-gray-500 uppercase">Height (cm)</label><input type="number" value={calculatorInputs.height} onChange={e => setCalculatorInputs({...calculatorInputs, height: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><label className="text-xs font-bold text-gray-500 uppercase">Age</label><input type="number" value={calculatorInputs.age} onChange={e => setCalculatorInputs({...calculatorInputs, age: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                            <div><label className="text-xs font-bold text-gray-500 uppercase">Gender</label><select value={calculatorInputs.gender} onChange={e => setCalculatorInputs({...calculatorInputs, gender: e.target.value as Gender})} className="w-full p-3 rounded-xl border border-gray-200 mt-1 bg-white"><option value={Gender.MALE}>Male</option><option value={Gender.FEMALE}>Female</option></select></div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Specific Inputs */}
+                                {['BODY_FAT', 'DIABETES_RISK'].includes(activeCalculator) && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Waist (cm)</label><input type="number" value={calculatorInputs.waist} onChange={e => setCalculatorInputs({...calculatorInputs, waist: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Neck (cm)</label><input type="number" value={calculatorInputs.neck} onChange={e => setCalculatorInputs({...calculatorInputs, neck: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Hip (cm)</label><input type="number" value={calculatorInputs.hip} onChange={e => setCalculatorInputs({...calculatorInputs, hip: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                    </div>
+                                )}
+
+                                {['FRAME_SIZE'].includes(activeCalculator) && (
+                                    <div><label className="text-xs font-bold text-gray-500 uppercase">Wrist Circumference (cm)</label><input type="number" value={calculatorInputs.wrist} onChange={e => setCalculatorInputs({...calculatorInputs, wrist: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                )}
+
+                                {['BP_RISK', 'HEART_RISK'].includes(activeCalculator) && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Systolic (Top)</label><input type="number" value={calculatorInputs.systolic} onChange={e => setCalculatorInputs({...calculatorInputs, systolic: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Diastolic (Bottom)</label><input type="number" value={calculatorInputs.diastolic} onChange={e => setCalculatorInputs({...calculatorInputs, diastolic: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                    </div>
+                                )}
+
+                                {['RUNNING', 'CYCLING', 'SWIMMING', 'WALKING', 'GYM_CALORIE'].includes(activeCalculator) && (
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Duration (mins)</label><input type="number" value={calculatorInputs.duration} onChange={e => setCalculatorInputs({...calculatorInputs, duration: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Intensity</label><select className="w-full p-3 rounded-xl border border-gray-200 mt-1 bg-white"><option>Moderate</option><option>Vigorous</option></select></div>
+                                    </div>
+                                )}
+
+                                {['STEPS_CALORIE'].includes(activeCalculator) && (
+                                    <div><label className="text-xs font-bold text-gray-500 uppercase">Daily Steps</label><input type="number" value={calculatorInputs.steps} onChange={e => setCalculatorInputs({...calculatorInputs, steps: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                )}
+
+                                {['DUE_DATE', 'OVULATION'].includes(activeCalculator) && (
+                                    <div><label className="text-xs font-bold text-gray-500 uppercase">First Day of Last Period</label><input type="date" value={calculatorInputs.lastPeriod} onChange={e => setCalculatorInputs({...calculatorInputs, lastPeriod: e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                )}
+
+                                {['STRESS_LEVEL'].includes(activeCalculator) && (
+                                    <div><label className="text-xs font-bold text-gray-500 uppercase">Stress Level (1-10)</label><input type="range" min="1" max="10" value={calculatorInputs.stressLevel} onChange={e => setCalculatorInputs({...calculatorInputs, stressLevel: +e.target.value})} className="w-full mt-2"/></div>
+                                )}
+
+                                {['STRENGTH_LEVEL'].includes(activeCalculator) && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Bench (kg)</label><input type="number" value={calculatorInputs.benchPress} onChange={e => setCalculatorInputs({...calculatorInputs, benchPress: +e.target.value})} className="w-full p-2 rounded-lg border border-gray-200 mt-1"/></div>
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Squat (kg)</label><input type="number" value={calculatorInputs.squat} onChange={e => setCalculatorInputs({...calculatorInputs, squat: +e.target.value})} className="w-full p-2 rounded-lg border border-gray-200 mt-1"/></div>
+                                        <div><label className="text-xs font-bold text-gray-500 uppercase">Deadlift (kg)</label><input type="number" value={calculatorInputs.deadlift} onChange={e => setCalculatorInputs({...calculatorInputs, deadlift: +e.target.value})} className="w-full p-2 rounded-lg border border-gray-200 mt-1"/></div>
+                                    </div>
+                                )}
+
+                                {['LIVER_SCORE'].includes(activeCalculator) && (
+                                    <div><label className="text-xs font-bold text-gray-500 uppercase">Drinks per Week</label><input type="number" value={calculatorInputs.alcoholDrinks} onChange={e => setCalculatorInputs({...calculatorInputs, alcoholDrinks: +e.target.value})} className="w-full p-3 rounded-xl border border-gray-200 mt-1"/></div>
+                                )}
+
+                                {['DIABETES_RISK', 'HEART_RISK'].includes(activeCalculator) && (
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center gap-2 text-sm font-bold text-gray-600"><input type="checkbox" checked={calculatorInputs.diabetesHistory} onChange={e => setCalculatorInputs({...calculatorInputs, diabetesHistory: e.target.checked})} /> Diabetes History</label>
+                                        {activeCalculator === 'HEART_RISK' && <label className="flex items-center gap-2 text-sm font-bold text-gray-600"><input type="checkbox" checked={calculatorInputs.smoker} onChange={e => setCalculatorInputs({...calculatorInputs, smoker: e.target.checked})} /> Smoker</label>}
+                                    </div>
+                                )}
+
+                                 <button onClick={runCalculation} className="w-full py-4 bg-brand-600 text-white font-black rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition active:scale-95 flex items-center justify-center gap-2"><Calculator size={20}/> CALCULATE NOW</button>
                              </div>
-                             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Age</label><input type="number" value={bodyStats.age} onChange={e => setBodyStats({...bodyStats, age: +e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 font-bold"/></div>
-                             <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gender</label><div className="flex bg-gray-50 p-1 rounded-xl border border-gray-200"><button onClick={() => setBodyStats({...bodyStats, gender: Gender.MALE})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${bodyStats.gender === Gender.MALE ? 'bg-white shadow-sm text-brand-600' : 'text-gray-400'}`}>Male</button><button onClick={() => setBodyStats({...bodyStats, gender: Gender.FEMALE})} className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${bodyStats.gender === Gender.FEMALE ? 'bg-white shadow-sm text-pink-600' : 'text-gray-400'}`}>Female</button></div></div>
-                             <button onClick={runCalculation} className="w-full py-4 bg-brand-600 text-white font-black rounded-xl shadow-lg shadow-brand-200 hover:bg-brand-700 transition active:scale-95">CALCULATE</button>
                          </div>
-                         <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center justify-center text-center border border-gray-100">
+
+                         {/* Results Section */}
+                         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
                              {calculatedResult ? (
-                                 <div className="animate-in zoom-in">
-                                     <p className="text-xs font-bold uppercase text-gray-400 mb-2">{calculatedResult.category}</p>
-                                     <h3 className="text-5xl font-black mb-2" style={{color: calculatedResult.color}}>{calculatedResult.value}</h3>
-                                     <p className="text-gray-500 font-medium mb-6">{calculatedResult.unit}</p>
+                                 <div className="p-6 animate-in zoom-in h-full flex flex-col">
+                                     <div className="text-center mb-6">
+                                         <span className="inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gray-100 text-gray-500 mb-2">{calculatedResult.category}</span>
+                                         <h3 className="text-6xl font-black mb-2" style={{color: calculatedResult.color}}>{calculatedResult.value}</h3>
+                                         <p className="text-gray-400 font-bold">{calculatedResult.unit}</p>
+                                     </div>
+
+                                     {/* Gauge / Chart Area */}
                                      {calculatedResult.chartData && (
-                                         <div className="h-40 w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={calculatedResult.chartData} innerRadius={40} outerRadius={60} dataKey="value"><Cell fill={calculatedResult.color} /><Cell fill="#e5e7eb" /></Pie></PieChart></ResponsiveContainer></div>
+                                         <div className="h-40 w-full -my-4">
+                                             <ResponsiveContainer width="100%" height="100%">
+                                                 <PieChart>
+                                                     <Pie data={calculatedResult.chartData} innerRadius={60} outerRadius={80} startAngle={180} endAngle={0} dataKey="value">
+                                                         {calculatedResult.chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                                                     </Pie>
+                                                 </PieChart>
+                                             </ResponsiveContainer>
+                                         </div>
                                      )}
-                                     <div className="mt-4 text-left w-full bg-white p-4 rounded-xl border border-gray-200">
-                                         <p className="text-xs font-bold text-gray-400 uppercase mb-2">Action Plan</p>
-                                         <ul className="space-y-2">{calculatedResult.actionPoints?.map((p, i) => <li key={i} className="text-sm font-medium flex items-start gap-2"><CheckCircle2 size={16} className="text-green-500 shrink-0"/> {p}</li>)}</ul>
+
+                                     {/* Detailed Stats Grid */}
+                                     {calculatedResult.detailedStats && (
+                                         <div className="grid grid-cols-2 gap-3 mb-6">
+                                             {calculatedResult.detailedStats.map((stat, i) => (
+                                                 <div key={i} className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
+                                                     <p className="text-[10px] font-bold text-gray-400 uppercase">{stat.label}</p>
+                                                     <p className="text-sm font-bold text-gray-800">{stat.value}</p>
+                                                 </div>
+                                             ))}
+                                         </div>
+                                     )}
+
+                                     {/* Action Plan */}
+                                     <div className="bg-brand-50 p-5 rounded-2xl mt-auto">
+                                         <h4 className="text-xs font-bold text-brand-800 uppercase mb-3 flex items-center gap-2"><Target size={14}/> AI Recommendations</h4>
+                                         <ul className="space-y-2">
+                                             {calculatedResult.actionPoints?.map((p, i) => (
+                                                 <li key={i} className="text-sm font-medium text-brand-900 flex items-start gap-2">
+                                                     <CheckCircle2 size={16} className="text-brand-500 shrink-0 mt-0.5"/> {p}
+                                                 </li>
+                                             ))}
+                                         </ul>
                                      </div>
                                  </div>
                              ) : (
-                                 <div className="opacity-40"><Calculator size={64} className="mx-auto mb-4 text-gray-300"/><p className="font-bold text-gray-400">Enter details to calculate</p></div>
+                                 <div className="h-full flex flex-col items-center justify-center opacity-30 p-10">
+                                     <Calculator size={80} className="mb-4 text-gray-400"/>
+                                     <p className="font-black text-xl text-gray-400">Ready to Calculate</p>
+                                     <p className="text-sm text-center mt-2 max-w-xs">Enter your details to get professional-grade health insights.</p>
+                                 </div>
                              )}
                          </div>
                      </div>
@@ -708,9 +955,9 @@ const App: React.FC = () => {
       {/* Mobile Nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-2 flex justify-around items-center z-40 pb-safe shadow-xl">
           <button onClick={() => setView(AppView.DASHBOARD)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.DASHBOARD ? 'text-brand-600' : 'text-gray-400'}`}><LayoutDashboard size={22} /><span className="text-[10px] font-bold mt-1">Home</span></button>
-          <button onClick={() => setView(AppView.NUTRITION)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.NUTRITION ? 'text-brand-600' : 'text-gray-400'}`}><UtensilsCrossed size={22} /><span className="text-[10px] font-bold mt-1">Diet</span></button>
-          <div className="relative -top-6"><button onClick={() => setShowScanner(true)} className="w-16 h-16 bg-brand-600 rounded-full shadow-xl shadow-brand-300 flex items-center justify-center text-white ring-4 ring-slate-50 transform active:scale-95 transition"><ScanLine size={28} /></button></div>
           <button onClick={() => setView(AppView.CALCULATORS)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.CALCULATORS ? 'text-brand-600' : 'text-gray-400'}`}><Calculator size={22} /><span className="text-[10px] font-bold mt-1">Calc</span></button>
+          <div className="relative -top-6"><button onClick={() => setShowScanner(true)} className="w-16 h-16 bg-brand-600 rounded-full shadow-xl shadow-brand-300 flex items-center justify-center text-white ring-4 ring-slate-50 transform active:scale-95 transition"><ScanLine size={28} /></button></div>
+          <button onClick={() => setView(AppView.MENTAL_HEALTH)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.MENTAL_HEALTH ? 'text-brand-600' : 'text-gray-400'}`}><Brain size={22} /><span className="text-[10px] font-bold mt-1">Mind</span></button>
           <button onClick={() => setView(AppView.CHAT)} className={`p-2 rounded-xl flex flex-col items-center ${view === AppView.CHAT ? 'text-brand-600' : 'text-gray-400'}`}><MessageSquare size={22} /><span className="text-[10px] font-bold mt-1">Chat</span></button>
       </nav>
 

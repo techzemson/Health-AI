@@ -11,8 +11,7 @@ export enum AppView {
   PROGRESS_PHOTOS = 'PROGRESS_PHOTOS',
   CALCULATORS = 'CALCULATORS',
   CHAT = 'CHAT',
-  NUTRITION = 'NUTRITION',
-  HEALTH = 'HEALTH'
+  MENTAL_HEALTH = 'MENTAL_HEALTH'
 }
 
 export enum Gender {
@@ -32,21 +31,20 @@ export enum ActivityLevel {
 export type UnitSystem = 'METRIC' | 'IMPERIAL';
 
 export type CalculatorType = 
-  | 'BMI' 
-  | 'BODY_FAT' 
-  | 'BMR' 
-  | 'TDEE' 
-  | 'PROTEIN' 
-  | 'WATER' 
-  | 'IBW' 
-  | 'HEART_RATE' 
-  | 'WHR' 
-  | 'ORM' 
-  | 'PREGNANCY' 
-  | 'BREATH'
-  | 'SLEEP_DEBT'
-  | 'SMOKING'
-  | 'ALCOHOL';
+  // General Body
+  | 'BMI' | 'BMR' | 'TDEE' | 'BODY_FAT' | 'LEAN_MASS' | 'IBW' | 'FRAME_SIZE' | 'HEART_RATE_ZONE'
+  // Nutrition
+  | 'CALORIE_INTAKE' | 'PROTEIN' | 'CARB' | 'FAT' | 'FIBER' | 'SUGAR' | 'SODIUM' | 'VITAMIN' | 'MINERAL'
+  // Disease Risk
+  | 'DIABETES_RISK' | 'BP_RISK' | 'HEART_RISK' | 'KIDNEY_RISK' | 'LIVER_SCORE'
+  // Fitness
+  | 'STEPS_CALORIE' | 'WALKING' | 'RUNNING' | 'CYCLING' | 'SWIMMING' | 'GYM_CALORIE' | 'VO2_MAX' | 'STRENGTH_LEVEL'
+  // Women's Health
+  | 'DUE_DATE' | 'OVULATION' | 'PREGNANCY_CALORIE' | 'BREASTFEEDING' | 'PCOS_WEIGHT'
+  // Other
+  | 'METABOLIC_AGE' | 'HYDRATION_LEVEL' | 'SLEEP_DURATION' | 'STRESS_LEVEL' | 'IMMUNITY_SCORE'
+  // Legacy
+  | 'WATER' | 'SLEEP_DEBT' | 'SMOKING' | 'ALCOHOL' | 'WHR' | 'ORM' | 'BREATH' | 'PREGNANCY';
 
 export interface CalculatorResult {
   value: number | string;
@@ -55,6 +53,7 @@ export interface CalculatorResult {
   color?: string;
   chartData?: { name: string; value: number; fill: string }[];
   actionPoints?: string[];
+  detailedStats?: { label: string; value: string }[];
   verdict?: string;
 }
 
